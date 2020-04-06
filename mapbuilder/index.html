@@ -1,0 +1,22 @@
+<script type="text/javascript" src="./mapbuilder.js"></script>
+<script type="text/javascript">
+   document.addEventListener('DOMContentLoaded', (event) => {
+       main();
+   });
+</script>
+<div>
+    <div style="float: left; padding: 2px; width: 20%">
+        <canvas id="imgatlas"style="width: 100%"></canvas>
+        <!-- TODO
+            <button id="addcolumn">+ col</button>
+            <button id="removecolumn">- col</button>
+            <button id="addrow">+ row</button>
+            <button id="removerow">- row</button>
+            <br>
+        -->
+        <button id="downloader">Download Map</button>
+    </div>
+    <div style="float: right; width: 75%;">
+        <canvas id="display" style="width: 100%; height: 100%"></canvas>
+    </div>
+</div>
