@@ -17,6 +17,7 @@ export class Enemy extends GameMapEntity {
     // spawnID should be a monotonically increase ID for all enemies spawned in
     // a particular wave
     constructor(spawnID) {
+        super();
         this._currentSpriteFrame = 0;
         this._statusEffects = [];
         this._ticksSinceTransition = 0;
@@ -26,37 +27,37 @@ export class Enemy extends GameMapEntity {
     get spawnID() { return this._spawnID; }
 
     ontick(movementCallback) {
-        const sprite = spriteFrames[this._currentSpriteFrame];
-        this._ticksSinceTransition += 1;
-        if (this._ticksSinceTransition == this.ticksPerSpriteTransition) {
-            this._currentSpriteFrame += 1;
-            this._currentSpriteFrame %= this.spriteFrames.length;
-            this._ticksSinceTransition = 0
+        const sprite = this.spriteFrames[this._currentSpriteFrame];
+        if (this.ticksPerSpriteTransition > 0) {
+            this._ticksSinceTransition += 1;
+            if (this._ticksSinceTransition == this.ticksPerSpriteTransition) {
+                this._currentSpriteFrame += 1;
+                this._currentSpriteFrame %= this.spriteFrames.length;
+                this._ticksSinceTransition = 0
+            }
         }
 
-        let currentVelocity = [...this.velocity];
+        let currentVelocity = this.velocity;
         // compute any status effects
         const that = this;
-        this._statusEffects.foreach((effect) => {
+        this._statusEffects.forEach((effect) => {
             if (effect.ticks >= 0)
                 effect.ticks -= 1;
 
             if (effect.damagePerTick > 0)
                 that.hp -= effect.damagePerTick;
 
-            if (effect.velocityModifer) {
-                currentVelocity[0] += effect.velocityModifier[0];
-                currentVelocity[1] += effect.velocityModifier[1];
-            }
+            if (effect.velocityModifer)
+                currentVelocity += effect.velocityModifier;
         });
 
         // posibility of status effects causing death
-        if (this.hp <= 0)
-            return this.ondeath();
-        else {
+        // if (this.hp <= 0)
+        //     return this.ondeath();
+        // else {
             // handles collisions and such
             return movementCallback(true, currentVelocity, sprite);
-        }
+        //}
     }
 
     ondamage(attack) {
