@@ -1,7 +1,15 @@
 export class GameMapEntity {
     position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
+    _diceRoll = 0;
+
     ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
     ondamage() {}
+
+    get spawnID() { return 0; }
+    diceRoll(n, tile) {
+        // get the fractional part of _diceRoll * tile
+        return Math.floor((this._diceRoll * tile) % 1 * n);
+    }
 }
 
 export class DeathEvent {
@@ -60,7 +68,7 @@ export class GameMap {
         const rotation = Math.atan2(rotationVector[0], rotationVector[1]);
         this.ctx.translate(coords[0], coords[1]);
         //this.ctx.rotate(rotation);
-        this.ctx.drawImage(sprite, sprite.width, sprite.height);
+        this.ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
         //this.ctx.rotate(-rotation);
         this.ctx.translate(-coords[0], -coords[1]);
     }
@@ -75,40 +83,29 @@ export class GameMap {
         // for now ignore velocity and turning
         if (!this.edgeMap.has(tile)) {
             // only the velocity matters
-            const tileCoords = this.tileIDToCoords(tile);
+            const tileCoords = this.tileIDToCoords(tile).map((x, i) => x + entity.position[i]);
             this.renderSprite(sprite, tileCoords, velocity);
             return tile;
         } else {
             const that = this;
 
             const nextTiles = this.edgeMap.get(tile);
-            console.log("***");
-            console.log(tile, nextTiles);
             if (nextTiles.length == 0)
                 throw new Error("Tile has no valid next tiles!");
-            const nextTile = nextTiles[Math.floor(Math.random() * nextTiles.length)];
-            const nextCoords = this.tileIDToCoords(nextTile);
+            const nextTile = nextTiles[entity.diceRoll(nextTiles.length, tile)];
+            const nextCoords = this.tileIDToCoords(nextTile).map(x => x + this.map.tsize / 2);
 
-            console.log(this.tileIDToCoords(tile), entity.position, this.tileIDToCoords(tile)[1]/this.map.tsize);
             const currCoords = this.tileIDToCoords(tile).map((x, i) => x + entity.position[i]);
 
             let direction = [nextCoords[0] - currCoords[0], nextCoords[1] - currCoords[1]];
             const dirMag = magnitude(direction);
-            console.log("---");
-            console.log(currCoords);
-            console.log(direction);
             direction = direction.map((e) => that.map.tsize * velocity * e / dirMag);
-            console.log(direction);
 
             const targetPos = currCoords.map((x, i) => x + direction[i]);
-            //console.log(currCoords, nextTile, nextCoords, direction, targetPos);
 
             this.renderSprite(sprite, targetPos, direction);
 
-            console.log("    ", targetPos);
-            console.log("    ", entity.position);
             entity.position = targetPos.map((x) => x % this.map.tsize);
-            console.log("    ", entity.position);
 
             return Math.floor(targetPos[0] / 64) + Math.floor(targetPos[1] / 64) * this.map.cols;
         }
@@ -163,12 +160,14 @@ export class GameMap {
 
             // update tileEntitiesMap with the moved entities
             updates.forEach((oldEntities, tile) => {
-                oldEntities.forEach((id) => {
+                let counter = 0;
+                oldEntities.sort().forEach((id) => {
                     const oldTile = id[0];
                     const oldIdx = id[1];
 
                     const oldTileList = map.get(oldTile);
-                    const entity = oldTileList.pop(oldIdx);
+                    const entity = oldTileList.pop(oldIdx - counter);
+                    counter++;
                     if (oldTileList.length == 0)
                         map.delete(oldTile);
 
@@ -184,6 +183,14 @@ export class GameMap {
         ontickForTileMap(this.tileTowersMap);
         ontickForTileMap(this.tileEnemiesMap);
         ontickForTileMap(this.tileAttacksMap);
+
+        console.log(this.tileEnemiesMap);
+        if (this.tileEnemiesMap.entries.length <= 2)
+            this.tileEnemiesMap.forEach((entity, tile) => {
+                entity.forEach(e => {
+                    console.log("   ", tile, e.position);
+                });
+            });
 
         // TODO check every tile for collisions between enemies/attacks and
         // between tower enemies' ranges and towers.

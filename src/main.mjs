@@ -2,15 +2,17 @@ import {GameMap} from "./gamemap.mjs"
 import {Enemy} from "./enemies.mjs"
 
 const spriteList = [
-    "../enemy.png",
+    "../enemy0.png",
+    "../enemy1.png",
+    "../enemy2.png",
 ];
 
 class BasicEnemy extends Enemy {
-    spriteFrames = [0]   // spritelist idxs
-    ticksPerSpriteTransition = 0 // number of ticks for each frame in the list above
+    spriteFrames = [0, 1, 2]   // spritelist idxs
+    ticksPerSpriteTransition = 5 // number of ticks for each frame in the list above
 
     hp = 0
-    velocity = 1 // horzt/vert velocity in blocks per tick
+    velocity = 0.05 // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
 
@@ -57,9 +59,19 @@ async function main() {
     }
 
     const gamemap = new GameMap(map, tilesetImg, 8, spriteImgsList, canvas);
-    gamemap.tileEnemiesMap.set(96, [new BasicEnemy(0)]);
+    const msPerTick = 1000 / 60;
 
-    const msPerTick = 1000 / 30;
+    let spawnLimit = 10;
+
+    setInterval(function() {
+        if (spawnLimit) {
+            const enemy = new BasicEnemy(10 - spawnLimit, Math.random());
+            enemy.position = [map.tsize / 2, map.tsize / 2];
+            gamemap.tileEnemiesMap.set(96, [enemy]);
+            spawnLimit--;
+            console.log(spawnLimit);
+        }
+    }, msPerTick * 50);
 
     let lastTickTime = 0;
     (function render() {

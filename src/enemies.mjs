@@ -13,18 +13,16 @@ export class Enemy extends GameMapEntity {
     spawnOnDeath = [] // enemies to spawn on death
     resistances = [] // Resistances to attack types
 
-
     // spawnID should be a monotonically increase ID for all enemies spawned in
     // a particular wave
-    constructor(spawnID) {
+    constructor(spawnID, diceRoll) {
         super();
         this._currentSpriteFrame = 0;
         this._statusEffects = [];
         this._ticksSinceTransition = 0;
         this._spawnID = spawnID;
+        this._diceRoll = diceRoll;
     }
-
-    get spawnID() { return this._spawnID; }
 
     ontick(movementCallback) {
         const sprite = this.spriteFrames[this._currentSpriteFrame];
