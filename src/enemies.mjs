@@ -24,6 +24,8 @@ export class Enemy extends GameMapEntity {
         this._diceRoll = diceRoll;
     }
 
+    get spawnID() { return this._spawnID; }
+
     ontick(movementCallback) {
         const sprite = this.spriteFrames[this._currentSpriteFrame];
         if (this.ticksPerSpriteTransition > 0) {

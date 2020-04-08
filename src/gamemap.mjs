@@ -1,3 +1,14 @@
+export class Sprite {
+    spriteID = null;
+    filter = "";
+
+    constructor(spriteID, filter) {
+        this.spriteID = spriteID;
+        if (filter)
+            this.filter = filter;
+    }
+}
+
 export class GameMapEntity {
     position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
     _diceRoll = 0;
@@ -63,12 +74,18 @@ export class GameMap {
         return [tileX * this.map.tsize, tileY * this.map.tsize];
     }
 
-    renderSprite(spriteID, coords, rotationVector) {
-        const sprite = this.spriteList[spriteID];
+    renderSprite(sprite, coords, rotationVector) {
         const rotation = Math.atan2(rotationVector[0], rotationVector[1]);
         this.ctx.translate(coords[0], coords[1]);
         //this.ctx.rotate(rotation);
-        this.ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
+        const spriteImg = this.spriteList[sprite.spriteID];
+        const oldfilter = this.ctx.filter;
+        if (sprite.filter) {
+            this.ctx.filter = sprite.filter;
+            console.log(`Custom filter ${sprite.filter}`);
+        }
+        this.ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
+        this.ctx.filter = oldfilter;
         //this.ctx.rotate(-rotation);
         this.ctx.translate(-coords[0], -coords[1]);
     }
@@ -152,45 +169,40 @@ export class GameMap {
                     const movementCB = that.movementCallback.bind(that, tile, idx, map);
                     // TODO create query callbacks as well
                     const newTile = entity.ontick(movementCB);
-                    if (!updates.has(newTile))
-                        updates.set(newTile, []);
-                    updates.get(newTile).push([tile, idx]);
+                    if (newTile != tile) {
+                        if (!updates.has(tile))
+                            updates.set(tile, []);
+                        const update = [idx, newTile, entity.spawnID];
+                        updates.get(tile).push(update);
+                    }
                 });
             });
 
             // update tileEntitiesMap with the moved entities
-            updates.forEach((oldEntities, tile) => {
+            updates.forEach((oldEntities, oldTile) => {
                 let counter = 0;
                 oldEntities.sort().forEach((id) => {
-                    const oldTile = id[0];
-                    const oldIdx = id[1];
+                    const oldIdx = id[0];
+                    const newTile = id[1];
 
                     const oldTileList = map.get(oldTile);
-                    const entity = oldTileList.pop(oldIdx - counter);
+                    const entity = oldTileList.splice(oldIdx - counter,  1)[0];
                     counter++;
                     if (oldTileList.length == 0)
                         map.delete(oldTile);
 
-                    if (!map.has(tile))
-                        map.set(tile, [])
-                    map.get(tile).push(entity);
+                    if (!map.has(newTile))
+                        map.set(newTile, [])
+                    map.get(newTile).push(entity);
                 });
             });
         }
 
         this.renderBackground();
 
-        ontickForTileMap(this.tileTowersMap);
+        // ontickForTileMap(this.tileTowersMap);
         ontickForTileMap(this.tileEnemiesMap);
-        ontickForTileMap(this.tileAttacksMap);
-
-        console.log(this.tileEnemiesMap);
-        if (this.tileEnemiesMap.entries.length <= 2)
-            this.tileEnemiesMap.forEach((entity, tile) => {
-                entity.forEach(e => {
-                    console.log("   ", tile, e.position);
-                });
-            });
+        // ontickForTileMap(this.tileAttacksMap);
 
         // TODO check every tile for collisions between enemies/attacks and
         // between tower enemies' ranges and towers.

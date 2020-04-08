@@ -1,4 +1,4 @@
-import {GameMap} from "./gamemap.mjs"
+import {GameMap, Sprite} from "./gamemap.mjs"
 import {Enemy} from "./enemies.mjs"
 
 const spriteList = [
@@ -8,7 +8,7 @@ const spriteList = [
 ];
 
 class BasicEnemy extends Enemy {
-    spriteFrames = [0, 1, 2]   // spritelist idxs
+    spriteFrames = [new Sprite(0), new Sprite(1), new Sprite(2)]   // spritelist idxs
     ticksPerSpriteTransition = 5 // number of ticks for each frame in the list above
 
     hp = 0
@@ -61,27 +61,52 @@ async function main() {
     const gamemap = new GameMap(map, tilesetImg, 8, spriteImgsList, canvas);
     const msPerTick = 1000 / 60;
 
-    let spawnLimit = 10;
+    let spawnLimit = 100;
 
     setInterval(function() {
         if (spawnLimit) {
             const enemy = new BasicEnemy(10 - spawnLimit, Math.random());
             enemy.position = [map.tsize / 2, map.tsize / 2];
-            gamemap.tileEnemiesMap.set(96, [enemy]);
+            const origVelocity = enemy.velocity;
+            if (Math.random() < 0.75)
+                enemy.velocity *= 2;
+            if (Math.random() < 0.5)
+                enemy.velocity *= 2;
+            if (Math.random() < 0.25)
+                enemy.velocity *= 2;
+
+            const i = (enemy.velocity - origVelocity) * 2.5;
+            enemy.spriteFrames.map(s => {
+                s.filter = `invert(${i})`;
+            });
             spawnLimit--;
-            console.log(spawnLimit);
+
+            // const enemy1 = new BasicEnemy(10 - spawnLimit, 0.9 / 99);
+            // enemy1.position = [map.tsize / 2, map.tsize / 2];
+            // spawnLimit--;
+            // console.log(enemy.spawnID, enemy1.spawnID);
+
+            if (!gamemap.tileEnemiesMap.has(96))
+                gamemap.tileEnemiesMap.set(96, []);
+            gamemap.tileEnemiesMap.get(96).push(enemy);
         }
-    }, msPerTick * 50);
+    }, msPerTick * 5);
 
     let lastTickTime = 0;
-    (function render() {
+    function render(request) {
         const currTime = (new Date()).getTime();
-        if (currTime - lastTickTime > msPerTick) {
+        if (!request || (currTime - lastTickTime > msPerTick)) {
             lastTickTime = currTime;
             gamemap.ontick();
         }
-        requestAnimationFrame(render);
-    })()
+
+        if (request)
+            requestAnimationFrame(render);
+    }
+
+    render(true);
+
+    document.getElementById("step").onclick = () => { render(false); };
 }
 
 document.addEventListener('DOMContentLoaded', (event) => {
