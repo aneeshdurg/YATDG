@@ -5,6 +5,56 @@ const MAPHEIGHT = 16;
 const TILESPERROW = 8;
 
 async function main() {
+    var map = {
+        cols: MAPWIDTH,
+        rows: MAPHEIGHT,
+        tsize: 64,
+        tiles: new Array(MAPWIDTH * MAPHEIGHT),
+        legalTowerTiles: new Set(),
+        edgeMap: {},
+    };
+    map.tiles.fill(0);
+
+    function getTile(map, col, row) {
+        return map.tiles[row * map.cols + col]
+    }
+
+    document.getElementById("downloader").onclick = function() {
+        map.legalTowerTiles = [...map.legalTowerTiles];
+        const map_data = JSON.stringify(map);
+        map.legalTowerTiles = new Set(map.legalTowerTiles);
+
+        const el = document.createElement('a');
+        el.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(map_data));
+        el.setAttribute('download', 'map.json');
+        el.style.display = 'none';
+        document.body.appendChild(el);
+        el.click();
+        document.body.removeChild(el);
+    };
+
+    document.getElementById("load").addEventListener("click", async function() {
+        const filecontents = document.getElementById("filecontents");
+        const newMap = JSON.parse(filecontents.value);
+        map.cols = newMap.cols;
+        map.cols = newMap.rows;
+        map.tsize = newMap.tsize;
+        // TODO resize the canvas here
+        map.tiles = newMap.tiles;
+        map.legalTowerTiles = new Set(newMap.legalTowerTiles);
+        map.edgeMap = newMap.edgeMap;
+
+        document.getElementById("filepanel").style.display = "none";
+
+        drawingEvent();
+    });
+
+    document.getElementById("input").addEventListener("change", async function() {
+        const file = this.files[0];
+        document.getElementById("filecontents").value = await file.text();
+        document.getElementById("filepanel").style.display = "";
+    });
+
     const draw_canvas = document.getElementById("display");
     draw_canvas.width = TILEWIDTH * MAPWIDTH;
     draw_canvas.height = TILEHEIGHT * MAPHEIGHT;
@@ -71,20 +121,6 @@ async function main() {
     picker_canvas.onclick = pickerEvent;
     pickerEvent();
 
-    var map = {
-        cols: MAPWIDTH,
-        rows: MAPHEIGHT,
-        tsize: 64,
-        tiles: new Array(MAPWIDTH * MAPHEIGHT),
-        legalTowerTiles: new Set(),
-        edgeMap: {},
-    };
-    map.tiles.fill(0);
-
-    function getTile(map, col, row) {
-        return map.tiles[row * map.cols + col]
-    }
-
     function drawMap() {
         for (var c = 0; c < map.cols; c++) {
             for (var r = 0; r < map.rows; r++) {
@@ -120,17 +156,23 @@ async function main() {
 
         Object.keys(map.edgeMap).forEach((start) => {
             const startCoords = idxToXY(start);
+            startCoords[0] += TILEWIDTH / 2;
+            startCoords[1] += TILEHEIGHT / 2;
+
             map.edgeMap[start].forEach((end) => {
                 const endCoords = idxToXY(end);
+                endCoords[0] += TILEWIDTH / 2;
+                endCoords[1] += TILEHEIGHT / 2;
+
                 draw_ctx.lineWidth = "8";
                 const grad = draw_ctx.createLinearGradient(startCoords[0], startCoords[1], endCoords[0], endCoords[1]);
                 grad.addColorStop(0, "white");
-                grad.addColorStop(1, "green");
+                grad.addColorStop(1, "#00FF00");
 
                 draw_ctx.strokeStyle = grad;
                 draw_ctx.beginPath();
-                draw_ctx.moveTo(startCoords[0] + TILEWIDTH / 2, startCoords[1] + TILEHEIGHT / 2);
-                draw_ctx.lineTo(endCoords[0] + TILEWIDTH / 2, endCoords[1] + TILEHEIGHT / 2);
+                draw_ctx.moveTo(startCoords[0], startCoords[1]);
+                draw_ctx.lineTo(endCoords[0], endCoords[1]);
                 draw_ctx.stroke();
             });
         });
@@ -196,17 +238,5 @@ async function main() {
     }
     drawingEvent();
 
-    document.getElementById("downloader").onclick = function() {
-        map.legalTowerTiles = [...map.legalTowerTiles];
-        const map_data = JSON.stringify(map);
-        map.legalTowerTiles = new Set(map.legalTowerTiles);
-
-        const el = document.createElement('a');
-        el.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(map_data));
-        el.setAttribute('download', 'map.json');
-        el.style.display = 'none';
-        document.body.appendChild(el);
-        el.click();
-        document.body.removeChild(el);
-    };
+    // TODO support layers
 }
