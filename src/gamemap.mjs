@@ -13,6 +13,8 @@ export class GameMapEntity {
     position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
     _diceRoll = 0;
 
+    shouldRenderHpBar = false; // Whether or not an HP bar should be rendered above the entity
+
     ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
     ondamage() {}
 
@@ -82,7 +84,6 @@ export class GameMap {
         const oldfilter = this.ctx.filter;
         if (sprite.filter) {
             this.ctx.filter = sprite.filter;
-            console.log(`Custom filter ${sprite.filter}`);
         }
         this.ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
         this.ctx.filter = oldfilter;
@@ -96,6 +97,8 @@ export class GameMap {
     // velocity
     movementCallback(tile, idx, entityMap, collidesWithWalls, velocity, sprite) {
         const entity = entityMap.get(tile)[idx];
+
+        // TODO check collidesWithWalls
 
         // for now ignore velocity and turning
         if (!this.edgeMap.has(tile)) {
@@ -200,9 +203,39 @@ export class GameMap {
 
         this.renderBackground();
 
-        // ontickForTileMap(this.tileTowersMap);
+        ontickForTileMap(this.tileTowersMap);
         ontickForTileMap(this.tileEnemiesMap);
         // ontickForTileMap(this.tileAttacksMap);
+
+        this.tileTowersMap.forEach((towers, tile) => {
+            towers.forEach(tower => {
+                if (this.tileEnemiesMap.has(tile)) {
+                    const enemiesToRemove = [];
+                    const enemiesTiles = this.tileEnemiesMap.get(tile);
+                    enemiesTiles.forEach((enemy, eIdx) => {
+                        const events = tower.onenemy(enemy);
+                        if (events.tower) {
+                            // tower died
+                            // TODO despawn this tower
+                        }
+
+                        if (events.enemy) {
+                            // enemy has died
+                            enemiesToRemove.push(eIdx);
+                        }
+                    });
+
+                    // TODO rethink how death events are processed to allow for dying
+                    // animations.
+                    enemiesToRemove.forEach((eIdx, count) => {
+                        enemiesTiles.splice(eIdx - count, 1);
+                    });
+
+                    if (enemiesTiles.length == 0)
+                        this.tileEnemiesMap.delete(tile);
+                }
+            });
+        });
 
         // TODO check every tile for collisions between enemies/attacks and
         // between tower enemies' ranges and towers.

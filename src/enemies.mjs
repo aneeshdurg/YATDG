@@ -1,5 +1,4 @@
-// import {TICKSPERSECOND} from ./constants.mjs
-import {GameMapEntity} from './gamemap.mjs'
+import {GameMapEntity, DeathEvent} from './gamemap.mjs'
 
 export class Enemy extends GameMapEntity {
     spriteFrames = []   // spritelist idxs
@@ -9,6 +8,7 @@ export class Enemy extends GameMapEntity {
     velocity = [0, 0] // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
+    strength = 0 // attack strength when reaching tower
 
     spawnOnDeath = [] // enemies to spawn on death
     resistances = [] // Resistances to attack types
@@ -80,5 +80,8 @@ export class Enemy extends GameMapEntity {
         }
     }
 
-    ondeath() {}
+    ondeath() {
+        // TODO add dying animations
+        return new DeathEvent();
+    }
 }

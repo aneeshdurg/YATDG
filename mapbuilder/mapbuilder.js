@@ -64,7 +64,7 @@ async function main() {
     const img = new Image();
     await new Promise((r) => {
         img.onload = r;
-        img.src = "./tile_atlas.png";
+        img.src = "../assets/tile_atlas.png";
     });
 
     const picker_canvas = document.getElementById("imgatlas");
