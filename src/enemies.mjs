@@ -30,7 +30,7 @@ export class Enemy extends GameMapEntity {
         const sprite = this.spriteFrames[this._currentSpriteFrame];
         if (this.ticksPerSpriteTransition > 0) {
             this._ticksSinceTransition += 1;
-            if (this._ticksSinceTransition == this.ticksPerSpriteTransition) {
+            if (this._ticksSinceTransition >= this.ticksPerSpriteTransition) {
                 this._currentSpriteFrame += 1;
                 this._currentSpriteFrame %= this.spriteFrames.length;
                 this._ticksSinceTransition = 0
@@ -56,7 +56,8 @@ export class Enemy extends GameMapEntity {
         //     return this.ondeath();
         // else {
             // handles collisions and such
-            return movementCallback(true, currentVelocity, sprite);
+        // TODO allow unique velocity direction in movementCB
+            return movementCallback(true, [currentVelocity, 0], sprite);
         //}
     }
 

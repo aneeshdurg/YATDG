@@ -1,6 +1,8 @@
 import {GameMap, Sprite} from "../src/gamemap.mjs"
 import {Enemy} from "../src/enemies.mjs"
 import {Base} from "../src/base.mjs"
+import {Tower} from "../src/towers.mjs"
+import {HPBar} from "../src/hpbar.mjs"
 
 const spriteList = [
     "../assets/enemy/0.png",
@@ -9,6 +11,7 @@ const spriteList = [
     "../assets/base/0.png",
     "../assets/base/1.png",
     "../assets/base/2.png",
+    "../assets/foxTower.png",
 ];
 
 class BasicEnemy extends Enemy {
@@ -27,8 +30,62 @@ class BasicEnemy extends Enemy {
 
 class BasicBase extends Base {
     spriteFrames = [new Sprite(3), new Sprite(4), new Sprite(5)]
-    ticksPerSpriteTransition = 10
+    ticksPerSpriteTransition = 5
     hp = 100
+
+    constructor(spawnID) {
+        super(spawnID);
+        this.hpbar = new HPBar(this.hp, 64, 4);
+    }
+
+    ondamage(atk) {
+        super.ondamage(atk);
+        this.hpbar.update(this.hp);
+        this.spriteFrames.map(frame => {
+            const death = 1 - this.hp / this.hpbar.totalHP;
+            if (death != 1)
+                this.ticksPerSpriteTransition = 5 + 20 * death;
+            else
+                this.ticksPerSpriteTransition = 0;
+            frame.filter = `grayscale(${death})`;
+        });
+    }
+
+    onrender(ctx) {
+        // TODO don't hard code this?
+        ctx.translate(-32, -33);
+        this.hpbar.render(ctx);
+        ctx.translate(32, 33);
+    }
+
+
+}
+
+class FoxTower extends Tower {
+    spriteFrames = {
+        idle: {
+            frames: [new Sprite(6)],
+            tpt: 0, // tpt == ticksPerSpriteTransition
+        },
+    }
+
+    hp = 1
+    range = 2
+
+    constructor(spawnID) {
+        super(spawnID);
+        this._rotationCounter = 0;
+    }
+
+    ontick(movementCallback) {
+        return super.ontick((collidesWithWalls, _, sprite) => {
+            this._rotationCounter += 1;
+            this._rotationCounter %= 360;
+            const angle = 2 * Math.PI * this._rotationCounter / 360;
+            const velocity = [-Math.sin(angle), -Math.cos(angle)];
+            return movementCallback(collidesWithWalls, velocity, sprite);
+        });
+    }
 }
 
 async function readfile(url) {
@@ -70,9 +127,19 @@ async function main() {
     }
 
     const gamemap = new GameMap(map, tilesetImg, 8, spriteImgsList, canvas);
+
     const base = new BasicBase(0);
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
+
+    const tower1 = new FoxTower(999);
+    tower1.position = [map.tsize / 2, map.tsize / 2];
+    gamemap.tileTowersMap.set(81, [tower1]);
+
+    const tower2 = new FoxTower(1000);
+    tower2.position = [map.tsize / 2, map.tsize / 2];
+    gamemap.tileTowersMap.set(90, [tower2]);
+
     const msPerTick = 1000 / 60;
 
     let spawnLimit = 100;

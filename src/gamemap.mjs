@@ -1,3 +1,5 @@
+import {VMath} from './vmath.mjs'
+
 export class Sprite {
     spriteID = null;
     filter = "";
@@ -13,8 +15,6 @@ export class GameMapEntity {
     position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
     _diceRoll = 0;
 
-    shouldRenderHpBar = false; // Whether or not an HP bar should be rendered above the entity
-
     ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
     ondamage() {}
 
@@ -23,14 +23,12 @@ export class GameMapEntity {
         // get the fractional part of _diceRoll * tile
         return Math.floor((this._diceRoll * tile) % 1 * n);
     }
+
+    onrender(ctx) {}
 }
 
 export class DeathEvent {
     spawnInPlace = [] // optional entities to be spawned in place of this one.
-}
-
-function magnitude(vec2) {
-    return Math.sqrt(Math.pow(vec2[0], 2) + Math.pow(vec2[1], 2));
 }
 
 export class GameMap {
@@ -71,23 +69,24 @@ export class GameMap {
     }
 
     tileIDToCoords(tileID) {
-        const tileX = tileID % this.map.cols;
-        const tileY = Math.floor(tileID / this.map.cols);
-        return [tileX * this.map.tsize, tileY * this.map.tsize];
+        return VMath.mul([tileID % this.map.cols, Math.floor(tileID / this.map.cols)], this.map.tsize)
     }
 
-    renderSprite(sprite, coords, rotationVector) {
-        const rotation = Math.atan2(rotationVector[0], rotationVector[1]);
+    renderEntity(sprite, entity, coords, rotation) {
         this.ctx.translate(coords[0], coords[1]);
-        //this.ctx.rotate(rotation);
+        this.ctx.rotate(rotation);
         const spriteImg = this.spriteList[sprite.spriteID];
         const oldfilter = this.ctx.filter;
         if (sprite.filter) {
             this.ctx.filter = sprite.filter;
         }
         this.ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
+
         this.ctx.filter = oldfilter;
-        //this.ctx.rotate(-rotation);
+        this.ctx.rotate(-rotation);
+
+        entity.onrender(this.ctx);
+
         this.ctx.translate(-coords[0], -coords[1]);
     }
 
@@ -103,8 +102,12 @@ export class GameMap {
         // for now ignore velocity and turning
         if (!this.edgeMap.has(tile)) {
             // only the velocity matters
-            const tileCoords = this.tileIDToCoords(tile).map((x, i) => x + entity.position[i]);
-            this.renderSprite(sprite, tileCoords, velocity);
+            const tileCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
+            let rotation = 0;
+            if (VMath.magnitude(velocity) != 0)
+                rotation = Math.atan2(velocity[0], -velocity[1]);
+
+            this.renderEntity(sprite, entity, tileCoords, rotation);
             return tile;
         } else {
             const that = this;
@@ -113,17 +116,20 @@ export class GameMap {
             if (nextTiles.length == 0)
                 throw new Error("Tile has no valid next tiles!");
             const nextTile = nextTiles[entity.diceRoll(nextTiles.length, tile)];
-            const nextCoords = this.tileIDToCoords(nextTile).map(x => x + this.map.tsize / 2);
+            const nextCoords = VMath.add(this.tileIDToCoords(nextTile), this.map.tsize / 2);
 
-            const currCoords = this.tileIDToCoords(tile).map((x, i) => x + entity.position[i]);
+            const currCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
 
-            let direction = [nextCoords[0] - currCoords[0], nextCoords[1] - currCoords[1]];
-            const dirMag = magnitude(direction);
-            direction = direction.map((e) => that.map.tsize * velocity * e / dirMag);
+            let direction = VMath.sub(nextCoords, currCoords);
+            const dirMag = VMath.magnitude(direction);
+            const velModifier = this.map.tsize * VMath.magnitude(velocity);
+            if (dirMag > velModifier)
+                direction = VMath.mul(direction, velModifier / dirMag);
 
-            const targetPos = currCoords.map((x, i) => x + direction[i]);
+            const targetPos = VMath.add(currCoords, direction);
 
-            this.renderSprite(sprite, targetPos, direction);
+            const rotation = Math.atan2(direction[0], -direction[1]);
+            this.renderEntity(sprite, entity, targetPos, rotation);
 
             entity.position = targetPos.map((x) => x % this.map.tsize);
 
@@ -132,7 +138,14 @@ export class GameMap {
     }
 
     // TODO
-    // queryEnemiesInRadius(entity, seeThroughWalls, radius)
+    // queryEnemiesInRadius(tile, entity, radius) {
+    //     radius *= 64;
+    //     const tileCoords = VMath.add(this.tileIDToCoords(tile), entity.position[i]);
+    //     function isInRadius(coords) {
+    //         const distance = VMath.sub(tileCoords, coords[i]);
+    //         return VMath.magnitude(distance) < radius;
+    //     }
+    // }
     // queryTowersinRadius(entity, seeThroughWalls, radius)
 
     renderBackground() {

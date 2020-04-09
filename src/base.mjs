@@ -13,14 +13,14 @@ export class Base extends GameMapEntity {
         const sprite = this.spriteFrames[this._currentSpriteFrame];
         if (this.ticksPerSpriteTransition > 0) {
             this._ticksSinceTransition += 1;
-            if (this._ticksSinceTransition == this.ticksPerSpriteTransition) {
+            if (this._ticksSinceTransition >= this.ticksPerSpriteTransition) {
                 this._currentSpriteFrame += 1;
                 this._currentSpriteFrame %= this.spriteFrames.length;
                 this._ticksSinceTransition = 0
             }
         }
 
-        return movementCallback(true, 0, sprite);
+        return movementCallback(false, [0, 0], sprite);
     }
 
     ondeath() {
