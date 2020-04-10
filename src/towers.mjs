@@ -49,15 +49,6 @@ export class Tower extends GameMapEntity {
         return movementCallback(false, [0, 0], sprite);
     }
 
-    onrender(ctx) {
-        ctx.beginPath();
-        // TODO don't hard code 64, maybe pass in gamemap.map instead?
-        ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
-        ctx.fillStyle = "#2b2b2b40"
-        ctx.fill();
-        ctx.stroke();
-    }
-
     ondeath() {
         alert("You lost!");
     }

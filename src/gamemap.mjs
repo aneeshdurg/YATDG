@@ -15,6 +15,12 @@ export class GameMapEntity {
     position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
     _diceRoll = 0;
 
+    /**
+     * ontick will be called once a tick. The return value should be a tileID
+     * obtained from movementCallback.
+     * movementCallback(collideWithWalls, v | [v_x, v_y], sprite) => tileID
+     * queryEnemiesInRadius(radius, onlyCheckPathTiles) => [Enemy]
+     */
     ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
     ondamage() {}
 
@@ -24,6 +30,9 @@ export class GameMapEntity {
         return Math.floor((this._diceRoll * tile) % 1 * n);
     }
 
+    /**
+     * Optional method called after rendering this entity
+     */
     onrender(ctx) {}
 }
 
@@ -32,8 +41,18 @@ export class DeathEvent {
 }
 
 export class GameMap {
-    constructor(map, tilesetImg, tilesetTilesPerRow, spriteList, canvas) {
+    constructor(
+        map,
+        spawnPoints,
+        baseTile,
+        tilesetImg,
+        tilesetTilesPerRow,
+        spriteList,
+        canvas)
+    {
         this.map = map;
+        this.spawnPoints = spawnPoints;
+        this.baseTile = baseTile;
         this.tilesetImg = tilesetImg;
         this.tilesetTilesPerRow = tilesetTilesPerRow;
         this.spriteList = spriteList;
@@ -60,6 +79,11 @@ export class GameMap {
         this.edgeMap = edgeMapToMap(map.edgeMap);
         delete map["edgeMap"];
 
+        this.distanceMap = new Map();
+        this.spawnPoints.forEach(s => {
+            this.computeDistanceToBase(s);
+        });
+
 
         // For each tile what objects (towers/enemies/attacks/obstacles) are on
         // that tile?
@@ -68,8 +92,29 @@ export class GameMap {
         this.tileAttacksMap = new Map();
     }
 
+    computeDistanceToBase(tile) {
+        if (tile == this.baseTile)
+            return 0;
+
+        if (!this.edgeMap.has(tile))
+            return Infinity;
+
+        const edges = this.edgeMap.get(tile);
+        if (edges.length == 0)
+            return Infinity;
+
+        const d = 1 + Math.max(...edges.map(e => this.computeDistanceToBase(e, this.baseTile)));
+        this.distanceMap.set(tile, d);
+
+        return d;
+    }
+
+    tileIDToTileCoords(tileID) {
+        return [tileID % this.map.cols, Math.floor(tileID / this.map.cols)];
+    }
+
     tileIDToCoords(tileID) {
-        return VMath.mul([tileID % this.map.cols, Math.floor(tileID / this.map.cols)], this.map.tsize)
+        return VMath.mul(this.tileIDToTileCoords(tileID), this.map.tsize)
     }
 
     renderEntity(sprite, entity, coords, rotation) {
@@ -137,15 +182,52 @@ export class GameMap {
         }
     }
 
+    queryEnemiesInRadius(tile, entity, radius, onlyCheckPathTiles) {
+        const selfCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
+        const selfTCoords = this.tileIDToTileCoords(tile);
+        const radiuspx = radius * this.map.tsize;
+
+        const isInRadius = coords => VMath.magnitude(VMath.sub(selfCoords, coords)) < radiuspx;
+
+        const enemiesInRadius = [];
+
+        for (let xOffset = -radius; xOffset < radius; xOffset++) {
+            for (let yOffset = -radius; yOffset < radius; yOffset++) {
+                const otherTCoords = VMath.add(selfTCoords, [xOffset, yOffset]);
+                if (otherTCoords[0] < 0 || otherTCoords[1] < 0)
+                    continue;
+
+                if (otherTCoords[0] >= this.map.cols || otherTCoords[1] >= this.map.rows)
+                    continue;
+
+                const otherTile = otherTCoords[0] + otherTCoords[1] * this.map.cols;
+                if (onlyCheckPathTiles && !this.edgeMap.has(otherTile))
+                    continue;
+
+                if (this.tileEnemiesMap.has(otherTile)) {
+                    this.tileEnemiesMap.get(otherTile).forEach((e, eIdx) => {
+                        const enemyCoords = VMath.add(this.tileIDToCoords(otherTile), e.position);
+                        if (isInRadius(enemyCoords)) {
+                            // TODO make a class for this data
+                            enemiesInRadius.push({
+                                enemy: e,
+                                coords: enemyCoords,
+                                distanceToBase: this.distanceMap.get(otherTile),
+                                id: [otherTile, eIdx],
+                            });
+                        }
+                    });
+                }
+            }
+        }
+
+        return {
+            enemies: enemiesInRadius,
+            selfCoords: selfCoords,
+        };
+    }
+
     // TODO
-    // queryEnemiesInRadius(tile, entity, radius) {
-    //     radius *= 64;
-    //     const tileCoords = VMath.add(this.tileIDToCoords(tile), entity.position[i]);
-    //     function isInRadius(coords) {
-    //         const distance = VMath.sub(tileCoords, coords[i]);
-    //         return VMath.magnitude(distance) < radius;
-    //     }
-    // }
     // queryTowersinRadius(entity, seeThroughWalls, radius)
 
     renderBackground() {
@@ -183,8 +265,10 @@ export class GameMap {
             map.forEach((entities, tile) => {
                 entities.forEach((entity, idx) => {
                     const movementCB = that.movementCallback.bind(that, tile, idx, map);
+                    const queryEnemiesCB =
+                        that.queryEnemiesInRadius.bind(that, tile, entity);
                     // TODO create query callbacks as well
-                    const newTile = entity.ontick(movementCB);
+                    const newTile = entity.ontick(movementCB, queryEnemiesCB);
                     if (newTile != tile) {
                         if (!updates.has(tile))
                             updates.set(tile, []);

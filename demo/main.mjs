@@ -3,6 +3,7 @@ import {Enemy} from "../src/enemies.mjs"
 import {Base} from "../src/base.mjs"
 import {Tower} from "../src/towers.mjs"
 import {HPBar} from "../src/hpbar.mjs"
+import {VMath} from "../src/vmath.mjs"
 
 const spriteList = [
     "../assets/enemy/0.png",
@@ -53,9 +54,9 @@ class BasicBase extends Base {
 
     onrender(ctx) {
         // TODO don't hard code this?
-        ctx.translate(-32, -33);
+        ctx.translate(-this.position[0], -(this.position[1] + 1));
         this.hpbar.render(ctx);
-        ctx.translate(32, 33);
+        ctx.translate(this.position[0], this.position[1] + 1);
     }
 
 
@@ -70,21 +71,66 @@ class FoxTower extends Tower {
     }
 
     hp = 1
-    range = 2
+    range = 4
+    rotationSpeed = 0.1 // in radians per tick
+    priority = "first"
 
     constructor(spawnID) {
         super(spawnID);
-        this._rotationCounter = 0;
+        this.rotation = 0;
     }
 
-    ontick(movementCallback) {
+    ontick(movementCallback, queryEnemiesCB) {
         return super.ontick((collidesWithWalls, _, sprite) => {
-            this._rotationCounter += 1;
-            this._rotationCounter %= 360;
-            const angle = 2 * Math.PI * this._rotationCounter / 360;
-            const velocity = [-Math.sin(angle), -Math.cos(angle)];
+            // this._rotationCounter += 1;
+            // this._rotationCounter %= 360;
+            // const angle = 2 * Math.PI * this._rotationCounter / 360;
+            // const velocity = [-Math.sin(angle), -Math.cos(angle)];
+
+            const queryRes = queryEnemiesCB(this.range, true);
+
+            const enemies = queryRes.enemies;
+            const selfCoords = queryRes.selfCoords;
+
+            // rotate towards first enemy. What we really need is to sort this
+            // by distance from base along the path...
+
+            if (enemies.length && this.rotationSpeed) {
+                if (this.priority == "first")
+                    enemies.sort((e1, e2) => e1.distanceToBase > e2.distanceToBase);
+                else if (this.priority == "last")
+                    enemies.sort((e1, e2) => e1.distanceToBase < e2.distanceToBase);
+
+                const enemyDescription = enemies[0];
+                const rotationVector = VMath.mul([1, -1], VMath.sub(selfCoords, enemyDescription.coords));
+                const theta = Math.atan2(...rotationVector);
+
+                let minAngle = theta - this.rotation;
+                let tmp = theta - ((2 * Math.PI) + this.rotation)
+                if (Math.abs(tmp) < Math.abs(minAngle))
+                    minAngle = tmp;
+                tmp = ((2 * Math.PI) + theta) - this.rotation;
+                if (Math.abs(tmp) < Math.abs(minAngle))
+                    minAngle = tmp;
+
+                if (Math.abs(minAngle) > this.rotationSpeed)
+                    minAngle = Math.sign(minAngle) * this.rotationSpeed;
+
+                this.rotation += minAngle;
+            }
+
+            let velocity = [Math.sin(this.rotation), -Math.cos(this.rotation)];
             return movementCallback(collidesWithWalls, velocity, sprite);
         });
+    }
+
+    onrender(ctx) {
+        //ctx.beginPath();
+        //// TODO don't hard code 64, maybe pass in gamemap.map instead?
+        //ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
+        //ctx.fillStyle = "#2b2b2b10"
+        //ctx.fill();
+        //ctx.stroke();
     }
 }
 
@@ -126,19 +172,25 @@ async function main() {
         spriteImgsList.push(spriteImg);
     }
 
-    const gamemap = new GameMap(map, tilesetImg, 8, spriteImgsList, canvas);
+    const gamemap = new GameMap(map, [96], 253, tilesetImg, 8, spriteImgsList, canvas);
 
     const base = new BasicBase(0);
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
 
-    const tower1 = new FoxTower(999);
-    tower1.position = [map.tsize / 2, map.tsize / 2];
-    gamemap.tileTowersMap.set(81, [tower1]);
+    function ft(id, tile) {
+        const tower = new FoxTower(id);
+        tower.position = [map.tsize / 2, map.tsize / 2];
+        if (Math.random() < 0.5) {
+            tower.priority = "last";
+            tower.spriteFrames.idle.frames[0].filter = `invert(1)`;
+        }
+        gamemap.tileTowersMap.set(tile, [tower]);
+    }
 
-    const tower2 = new FoxTower(1000);
-    tower2.position = [map.tsize / 2, map.tsize / 2];
-    gamemap.tileTowersMap.set(90, [tower2]);
+    let startID = 999;
+    for (let tile of map.legalTowerTiles)
+        ft(startID++, tile);
 
     const msPerTick = 1000 / 60;
 
@@ -161,6 +213,8 @@ async function main() {
                 enemy.velocity *= 2;
                 i -= 0.25;
             }
+
+            // enemy.velocity = 0.05;
 
             if (i == 0.25)
                 i = 0;
