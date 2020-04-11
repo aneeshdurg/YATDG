@@ -23,7 +23,7 @@ export class Base extends Tower {
             this.ondeath();
             eventCb([new DeathEvent()]);
         }
-        return movementCb(false, 0, sprite);
+        return movementCb(true, [0, 0], 0, sprite);
     }
 
     ondeath() {

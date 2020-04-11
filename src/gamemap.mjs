@@ -1,7 +1,7 @@
 import {VMath} from './vmath.mjs'
 
-export class GameMap { constructor(map, gameInfo, resourceInfo, canvas)
-    {
+export class GameMap {
+    constructor(map, gameInfo, resourceInfo, canvas) {
         this.map = map;
 
         this.spawnPoints = gameInfo.spawnPoints;
@@ -94,47 +94,43 @@ export class GameMap { constructor(map, gameInfo, resourceInfo, canvas)
     // should move to. If the tile is a portal rotation is not required.
     // Otherwise the sprite will be rotate based on the direction of the
     // velocity
-    movementCallback(tile, idx, entityMap, collidesWithWalls, velocity, sprite) {
+    moveOrRender(tile, idx, entityMap, velocityIsDirection, velocity, rotation, sprite) {
         const entity = entityMap.get(tile)[idx];
 
-        // TODO check collidesWithWalls
+        let moved = true;
 
-        // for now ignore velocity and turning
-        if (!this.edgeMap.has(tile)) {
-            // only the velocity matters
-            const tileCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
-            let rotation = 0;
-            if (VMath.magnitude(velocity) != 0)
-                rotation = Math.atan2(velocity[0], -velocity[1]);
+        const currCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
+        let direction = [0, 0];
 
-            this.renderEntity(sprite, entity, tileCoords, rotation);
-            return tile;
-        } else {
-            const that = this;
-
+        if (velocityIsDirection) {
+            direction = velocity;
+        } else if (this.edgeMap.has(tile)) {
             const nextTiles = this.edgeMap.get(tile);
             if (nextTiles.length == 0)
                 throw new Error("Tile has no valid next tiles!");
             const nextTile = nextTiles[entity.diceRoll(nextTiles.length, tile)];
             const nextCoords = VMath.add(this.tileIDToCoords(nextTile), this.map.tsize / 2);
 
-            const currCoords = VMath.add(this.tileIDToCoords(tile), entity.position);
-
-            let direction = VMath.sub(nextCoords, currCoords);
+            direction = VMath.sub(nextCoords, currCoords);
             const dirMag = VMath.magnitude(direction);
             const velModifier = this.map.tsize * VMath.magnitude(velocity);
             if (dirMag > velModifier)
                 direction = VMath.mul(direction, velModifier / dirMag);
-
-            const targetPos = VMath.add(currCoords, direction);
-
-            const rotation = Math.atan2(direction[0], -direction[1]);
-            this.renderEntity(sprite, entity, targetPos, rotation);
-
-            entity.position = targetPos.map((x) => x % this.map.tsize);
-
-            return Math.floor(targetPos[0] / 64) + Math.floor(targetPos[1] / 64) * this.map.cols;
+        } else {
+            moved = false;
         }
+
+        const targetPos = VMath.add(currCoords, direction);
+        rotation = isNaN(rotation) ? Math.atan2(direction[0], -direction[1]) : rotation;
+        this.renderEntity(sprite, entity, targetPos, rotation);
+
+        let newTile = tile;
+        if (moved) {
+            entity.position = targetPos.map((x) => x % this.map.tsize);
+            newTile = Math.floor(targetPos[0] / 64) + Math.floor(targetPos[1] / 64) * this.map.cols;
+        }
+
+        return newTile;
     }
 
     queryEnemiesInRadius(tile, entity, radius, onlyCheckPathTiles) {
@@ -220,7 +216,7 @@ export class GameMap { constructor(map, gameInfo, resourceInfo, canvas)
             map.forEach((entities, tile) => {
 
                 entities.forEach((entity, idx) => {
-                    const movementCB = that.movementCallback.bind(that, tile, idx, map);
+                    const movementCB = that.moveOrRender.bind(that, tile, idx, map);
                     function eventCB(events) {
                         if (!updates.has(tile))
                             updates.set(tile, []);
@@ -285,13 +281,10 @@ export class GameMap { constructor(map, gameInfo, resourceInfo, canvas)
         this.tileTowersMap.forEach((towers, tile) => {
             towers.forEach((tower, tIdx) => {
                 if (this.tileEnemiesMap.has(tile)) {
-                    const enemiesTiles = this.tileEnemiesMap.get(tile);
-
-                    for (let eIdx = 0; eIdx < enemiesTiles.length; eIdx++) {
-                        const enemy = enemiesTiles[eIdx];
+                    this.tileEnemiesMap.get(tile).forEach(enemy => {
                         if (enemy.hp)
                             tower.onenemy(enemy);
-                    }
+                    });
                 }
             });
 

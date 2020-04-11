@@ -122,7 +122,7 @@ class FoxTower extends Tower {
     }
 
     ontick(movementCallback, eventsCallback, queryEnemiesCB) {
-        return super.ontick((collidesWithWalls, _, sprite) => {
+        return super.ontick((_velIsDir, _vel, _rot, sprite) => {
             const queryRes = queryEnemiesCB(this.range, true);
 
             const enemies = queryRes.enemies;
@@ -152,8 +152,7 @@ class FoxTower extends Tower {
                 this.rotation += minAngle;
             }
 
-            let velocity = [Math.sin(this.rotation), -Math.cos(this.rotation)];
-            return movementCallback(collidesWithWalls, velocity, sprite);
+            return movementCallback(false, 0, this.rotation, sprite);
         });
     }
 

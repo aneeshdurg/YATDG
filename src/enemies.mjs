@@ -74,7 +74,7 @@ export class Enemy extends Entity {
             eventsCallback([new DeathEvent()])
             return -1;
         } else
-            return movementCallback(true, currentVelocity, sprite);
+            return movementCallback(false, currentVelocity, NaN, sprite);
     }
 
     ondamage(attack) {

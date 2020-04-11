@@ -47,7 +47,7 @@ export class Tower extends Entity {
             }
         }
 
-        return movementCallback(false, [0, 0], sprite);
+        return movementCallback(false, 0, NaN, sprite);
     }
 
     ondamage(atk) {

@@ -8,7 +8,7 @@ export class Entity {
      * movementCallback(collideWithWalls, v | [v_x, v_y], sprite) => tileID
      * queryEnemiesInRadius(radius, onlyCheckPathTiles) => [Enemy]
      */
-    ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
+    ontick(movementCallback, eventCallback, queryEnemiesinRadius, queryTowersinRadius) {}
     ondamage() {}
 
     get spawnID() { return 0; }
