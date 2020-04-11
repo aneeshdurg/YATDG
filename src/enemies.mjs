@@ -1,8 +1,17 @@
-import {GameMapEntity, DeathEvent} from './gamemap.mjs'
+import {Entity} from './entity.mjs'
+import {DeathEvent} from './events.mjs'
 
-export class Enemy extends GameMapEntity {
-    spriteFrames = []   // spritelist idxs
-    ticksPerSpriteTransition = 0 // number of ticks for each frame in the list above
+export class Enemy extends Entity {
+    spriteFrames = {
+        idle: {
+            frames: [],
+            tpt: 0,
+        },
+        dying: {
+            frames: [],
+            tpt: 0,
+        },
+    }
 
     hp = 0
     velocity = [0, 0] // horzt/vert velocity in blocks per tick
@@ -17,58 +26,68 @@ export class Enemy extends GameMapEntity {
     // a particular wave
     constructor(spawnID, diceRoll) {
         super();
+        this._spawnID = spawnID;
+        this._diceRoll = diceRoll;
+
+        this._currentFrameSet = "idle"
         this._currentSpriteFrame = 0;
         this._statusEffects = [];
         this._ticksSinceTransition = 0;
-        this._spawnID = spawnID;
-        this._diceRoll = diceRoll;
     }
 
     get spawnID() { return this._spawnID; }
 
-    ontick(movementCallback) {
-        const sprite = this.spriteFrames[this._currentSpriteFrame];
-        if (this.ticksPerSpriteTransition > 0) {
+    ontick(movementCallback, eventsCallback) {
+        const frameSet = this.spriteFrames[this._currentFrameSet];
+        const sprite = frameSet.frames[this._currentSpriteFrame];
+        if (frameSet.tpt > 0) {
             this._ticksSinceTransition += 1;
-            if (this._ticksSinceTransition >= this.ticksPerSpriteTransition) {
+            if (this._ticksSinceTransition >= frameSet.tpt) {
                 this._currentSpriteFrame += 1;
-                this._currentSpriteFrame %= this.spriteFrames.length;
-                this._ticksSinceTransition = 0
+                this._currentSpriteFrame %= frameSet.frames.length;
+                this._ticksSinceTransition = 0;
+
+                if (this._currentSpriteFrame == 0 && this._currentFrameSet != "idle") {
+                    this._currentFrameSet = "idle";
+                }
             }
         }
 
         let currentVelocity = this.velocity;
-        // compute any status effects
-        const that = this;
-        this._statusEffects.forEach((effect) => {
-            if (effect.ticks >= 0)
-                effect.ticks -= 1;
+        if (this.hp > 0) {
+            // compute any status effects
+            this._statusEffects.forEach((effect) => {
+                if (effect.ticks >= 0)
+                    effect.ticks -= 1;
 
-            if (effect.damagePerTick > 0)
-                that.hp -= effect.damagePerTick;
+                if (effect.damagePerTick > 0)
+                    this.hp -= effect.damagePerTick;
 
-            if (effect.velocityModifer)
-                currentVelocity += effect.velocityModifier;
-        });
+                if (effect.velocityModifer)
+                    currentVelocity += effect.velocityModifier;
+            });
+        } else {
+            currentVelocity = 0;
+        }
 
-        // posibility of status effects causing death
-        // if (this.hp <= 0)
-        //     return this.ondeath();
-        // else {
-            // handles collisions and such
-        // TODO allow unique velocity direction in movementCB
-            return movementCallback(true, [currentVelocity, 0], sprite);
-        //}
+        if (this.hp == 0 && this._currentFrameSet == "idle") {
+            eventsCallback([new DeathEvent()])
+            return -1;
+        } else
+            return movementCallback(true, currentVelocity, sprite);
     }
 
     ondamage(attack) {
-        if (this.resistances.findIndex(attack.type) > 0)
+        if (this.resistances.findIndex(r => r == attack.type) > 0)
             return;
         else
             this.hp -= attack.damage;
 
         if (this.hp <= 0) {
-            return this.ondeath();
+            this.hp = 0;
+            if (this.spriteFrames["dying"])
+                this._currentFrameSet = "dying";
+            return;
         }
 
         if (attack.effectChance > 0) {
@@ -79,10 +98,5 @@ export class Enemy extends GameMapEntity {
                 this._statusEffects.push(effect.copy());
             });
         }
-    }
-
-    ondeath() {
-        // TODO add dying animations
-        return new DeathEvent();
     }
 }

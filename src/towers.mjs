@@ -1,6 +1,7 @@
-import {GameMapEntity, DeathEvent} from './gamemap.mjs'
+import {Entity} from './entity.mjs'
+import {DeathEvent} from './events.mjs'
 
-export class Tower extends GameMapEntity {
+export class Tower extends Entity {
     spriteFrames = {
         idle: {
             frames: [],
@@ -30,7 +31,7 @@ export class Tower extends GameMapEntity {
 
     get spawnID() { return this._spawnID; }
 
-    ontick(movementCallback) {
+    ontick(movementCallback, eventsCallback) {
         const frameSet = this.spriteFrames[this._currentFrameSet];
         const sprite = frameSet.frames[this._currentSpriteFrame];
         if (frameSet.tpt > 0) {
@@ -49,23 +50,15 @@ export class Tower extends GameMapEntity {
         return movementCallback(false, [0, 0], sprite);
     }
 
-    ondeath() {
-        alert("You lost!");
-    }
-
     ondamage(atk) {
         if (this.spriteFrames["damage"] && this._currentFrameSet != "damage")
             this._currentFrameSet = "damage";
         this.hp -= atk;
+        this.hp = Math.max(0, this.hp);
     }
 
     onenemy(enemy) {
-        this.ondamage(enemy.strength);
-
-        if (this.hp == 0) {
-            return {tower: this.ondeath(), enemy: enemy.ondeath()};
-        }
-
-        return {tower: null, enemy: enemy.ondeath()};
+        // TODO rethink event system
+        return {tower: null, enemy: null};
     }
 }

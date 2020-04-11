@@ -1,44 +1,40 @@
-import {GameMapEntity} from './gamemap.mjs'
+import {Tower} from './towers.mjs'
+import {Attack} from './entity.mjs'
+import {DeathEvent} from './events.mjs'
 
-export class Base extends GameMapEntity {
-    spriteFrames = []   // spritelist idxs
-    ticksPerSpriteTransition = 0 // number of ticks for each frame in the list above
-
-    hp = 0
-
-    _currentSpriteFrame = 0;
-    _ticksSinceTransition = 0;
-
-    ontick(movementCallback) {
-        const sprite = this.spriteFrames[this._currentSpriteFrame];
-        if (this.ticksPerSpriteTransition > 0) {
+export class Base extends Tower {
+    ontick(movementCb, eventCb) {
+        const frameSet = this.spriteFrames[this._currentFrameSet];
+        const sprite = frameSet.frames[this._currentSpriteFrame];
+        if (frameSet.tpt > 0) {
             this._ticksSinceTransition += 1;
-            if (this._ticksSinceTransition >= this.ticksPerSpriteTransition) {
+            if (this._ticksSinceTransition >= frameSet.tpt) {
                 this._currentSpriteFrame += 1;
-                this._currentSpriteFrame %= this.spriteFrames.length;
-                this._ticksSinceTransition = 0
+                this._currentSpriteFrame %= frameSet.frames.length;
+                this._ticksSinceTransition = 0;
+
+                if (this._currentSpriteFrame == 0 && this._currentFrameSet != "idle") {
+                    this._currentFrameSet = "idle";
+                }
             }
         }
 
-        return movementCallback(false, [0, 0], sprite);
+        if (this.hp == 0) {
+            this.ondeath();
+            eventCb([new DeathEvent()]);
+        }
+        return movementCb(false, 0, sprite);
     }
 
     ondeath() {
         alert("You lost!");
     }
 
-    ondamage(atk) {
-        this.hp -= atk;
-    }
-
     onenemy(enemy) {
         this.ondamage(enemy.strength);
-
-        if (this.hp == 0) {
-            return {tower: this.ondeath(), enemy: enemy.ondeath()};
-        }
-
-        return {tower: null, enemy: enemy.ondeath()};
+        const atk = new Attack();
+        atk.damage = enemy.hp;
+        enemy.ondamage(atk);
     }
 }
 

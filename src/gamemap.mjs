@@ -1,62 +1,18 @@
 import {VMath} from './vmath.mjs'
 
-export class Sprite {
-    spriteID = null;
-    filter = "";
-
-    constructor(spriteID, filter) {
-        this.spriteID = spriteID;
-        if (filter)
-            this.filter = filter;
-    }
-}
-
-export class GameMapEntity {
-    position = [0, 0] // position within a tile ranges from [0, 0] to [map.tsize, map.tsize]
-    _diceRoll = 0;
-
-    /**
-     * ontick will be called once a tick. The return value should be a tileID
-     * obtained from movementCallback.
-     * movementCallback(collideWithWalls, v | [v_x, v_y], sprite) => tileID
-     * queryEnemiesInRadius(radius, onlyCheckPathTiles) => [Enemy]
-     */
-    ontick(movementCallback, queryEnemiesinRadius, queryTowersinRadius) {}
-    ondamage() {}
-
-    get spawnID() { return 0; }
-    diceRoll(n, tile) {
-        // get the fractional part of _diceRoll * tile
-        return Math.floor((this._diceRoll * tile) % 1 * n);
-    }
-
-    /**
-     * Optional method called after rendering this entity
-     */
-    onrender(ctx) {}
-}
-
-export class DeathEvent {
-    spawnInPlace = [] // optional entities to be spawned in place of this one.
-}
-
-export class GameMap {
-    constructor(
-        map,
-        spawnPoints,
-        baseTile,
-        tilesetImg,
-        tilesetTilesPerRow,
-        spriteList,
-        canvas)
+export class GameMap { constructor(map, gameInfo, resourceInfo, canvas)
     {
         this.map = map;
-        this.spawnPoints = spawnPoints;
-        this.baseTile = baseTile;
-        this.tilesetImg = tilesetImg;
-        this.tilesetTilesPerRow = tilesetTilesPerRow;
-        this.spriteList = spriteList;
+
+        this.spawnPoints = gameInfo.spawnPoints;
+        this.baseTile = gameInfo.baseTile;
+
+        this.tilesetImg = resourceInfo.tileset;
+        this.tilesetTilesPerRow = resourceInfo.tilesPerRow;
+        this.spriteList = resourceInfo.spriteList;
+
         this.canvas = canvas;
+
         this.canvas.width = this.map.tsize * this.map.cols;
         this.canvas.height = this.map.tsize * this.map.rows;
         this.ctx = canvas.getContext("2d");
@@ -83,7 +39,6 @@ export class GameMap {
         this.spawnPoints.forEach(s => {
             this.computeDistanceToBase(s);
         });
-
 
         // For each tile what objects (towers/enemies/attacks/obstacles) are on
         // that tile?
@@ -263,12 +218,23 @@ export class GameMap {
 
             // Let every entity in the game update for this tick
             map.forEach((entities, tile) => {
+
                 entities.forEach((entity, idx) => {
                     const movementCB = that.movementCallback.bind(that, tile, idx, map);
+                    function eventCB(events) {
+                        if (!updates.has(tile))
+                            updates.set(tile, []);
+                        updates.get(tile).push([idx, tile, entity.spawnID, events]);
+                    }
                     const queryEnemiesCB =
                         that.queryEnemiesInRadius.bind(that, tile, entity);
                     // TODO create query callbacks as well
-                    const newTile = entity.ontick(movementCB, queryEnemiesCB);
+                    const newTile = entity.ontick(movementCB, eventCB, queryEnemiesCB);
+
+                    // Don't update
+                    if (newTile < 0)
+                        return;
+
                     if (newTile != tile) {
                         if (!updates.has(tile))
                             updates.set(tile, []);
@@ -284,16 +250,28 @@ export class GameMap {
                 oldEntities.sort().forEach((id) => {
                     const oldIdx = id[0];
                     const newTile = id[1];
+                    if (id.length == 4) {
+                        // these are events
+                         id[3].forEach(e => {
+                            if (e.remove) {
+                                map.get(oldTile).splice(oldIdx - counter, 1);
+                                if (map.get(oldTile).length == 0)
+                                    map.delete(oldTile);
+                                counter++;
+                            }
+                            // TODO e.spawn
+                        });
+                    } else {
+                        const oldTileList = map.get(oldTile);
+                        const entity = oldTileList.splice(oldIdx - counter,  1)[0];
+                        counter++;
+                        if (oldTileList.length == 0)
+                            map.delete(oldTile);
 
-                    const oldTileList = map.get(oldTile);
-                    const entity = oldTileList.splice(oldIdx - counter,  1)[0];
-                    counter++;
-                    if (oldTileList.length == 0)
-                        map.delete(oldTile);
-
-                    if (!map.has(newTile))
-                        map.set(newTile, [])
-                    map.get(newTile).push(entity);
+                        if (!map.has(newTile))
+                            map.set(newTile, [])
+                        map.get(newTile).push(entity);
+                    }
                 });
             });
         }
@@ -305,33 +283,18 @@ export class GameMap {
         // ontickForTileMap(this.tileAttacksMap);
 
         this.tileTowersMap.forEach((towers, tile) => {
-            towers.forEach(tower => {
+            towers.forEach((tower, tIdx) => {
                 if (this.tileEnemiesMap.has(tile)) {
-                    const enemiesToRemove = [];
                     const enemiesTiles = this.tileEnemiesMap.get(tile);
-                    enemiesTiles.forEach((enemy, eIdx) => {
-                        const events = tower.onenemy(enemy);
-                        if (events.tower) {
-                            // tower died
-                            // TODO despawn this tower
-                        }
 
-                        if (events.enemy) {
-                            // enemy has died
-                            enemiesToRemove.push(eIdx);
-                        }
-                    });
-
-                    // TODO rethink how death events are processed to allow for dying
-                    // animations.
-                    enemiesToRemove.forEach((eIdx, count) => {
-                        enemiesTiles.splice(eIdx - count, 1);
-                    });
-
-                    if (enemiesTiles.length == 0)
-                        this.tileEnemiesMap.delete(tile);
+                    for (let eIdx = 0; eIdx < enemiesTiles.length; eIdx++) {
+                        const enemy = enemiesTiles[eIdx];
+                        if (enemy.hp)
+                            tower.onenemy(enemy);
+                    }
                 }
             });
+
         });
 
         // TODO check every tile for collisions between enemies/attacks and
