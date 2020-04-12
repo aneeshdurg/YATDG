@@ -185,7 +185,7 @@ class FoxTower extends Tower {
     }
 
     hp = 1
-    range = 4
+    range = 2
     abilities = [new ArrowAbility()]
 
     rotationSpeed = 0.1 // in radians per tick
@@ -200,7 +200,8 @@ class FoxTower extends Tower {
         return super.ontick((_velIsDir, _vel, _rot, sprite) => {
             const queryRes = queryEnemiesCB(this.range, true);
 
-            const enemies = queryRes.enemies.filter(e => !e.enemy.isFlying);
+            const enemies = queryRes.enemies.filter(
+                e => !e.enemy.isFlying && (!e.enemy.hp == 0));
             const selfCoords = queryRes.selfCoords;
 
             if (enemies.length && this.rotationSpeed) {
@@ -232,8 +233,10 @@ class FoxTower extends Tower {
                     // instead of the tower map.
                     if (bullet) {
                         const b = new bullet();
+                        const x = VMath.copy(this.position);
+                        b.position = x;
                         b.setTower(this);
-                        b.setDirection([Math.cos(this.rotation), -Math.sin(this.rotation)]);
+                        b.setDirection([-Math.sin(this.rotation), Math.cos(this.rotation)]);
                         eventsCallback([new SpawnEvent([b])]);
                     }
                 });
@@ -327,8 +330,8 @@ async function main() {
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
 
-    function ft(tile) {
-        if (Math.random() < 0.75)
+    function ft(tile, p) {
+        if (Math.random() < p)
             return;
         const tower = new FoxTower(vendor.id);
         tower.position = [map.tsize / 2, map.tsize / 2];
@@ -340,7 +343,7 @@ async function main() {
     }
 
     for (let tile of map.legalTowerTiles)
-        ft(tile);
+        ft(tile, 0.75);
 
     const tacks = new ThumbTack(vendor.id);
     tacks.position = [map.tsize / 2, map.tsize / 2];
