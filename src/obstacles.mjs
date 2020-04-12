@@ -12,10 +12,6 @@ class ObstacleAttack extends Attack {
 export class Obstacle extends Tower {
     hp = 0
 
-    _currentSpriteFrame = 0
-    _currentFrameSet = "idle"
-    _ticksSinceTransition = 0
-
     ondeath() {
         return new DeathEvent();
     }

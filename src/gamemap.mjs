@@ -1,5 +1,8 @@
 import {VMath} from './vmath.mjs'
 
+export const DONTUPDATE = -1;
+export const DELETE = -2;
+
 export class GameMap {
     constructor(map, gameInfo, resourceInfo, canvas) {
         this.map = map;
@@ -103,7 +106,7 @@ export class GameMap {
         let direction = [0, 0];
 
         if (velocityIsDirection) {
-            direction = velocity;
+            direction = VMath.mul(velocity, this.map.tsize);
         } else if (this.edgeMap.has(tile)) {
             const nextTiles = this.edgeMap.get(tile);
             if (nextTiles.length == 0)
@@ -127,7 +130,14 @@ export class GameMap {
         let newTile = tile;
         if (moved) {
             entity.position = targetPos.map((x) => x % this.map.tsize);
-            newTile = Math.floor(targetPos[0] / 64) + Math.floor(targetPos[1] / 64) * this.map.cols;
+            const newTileCoords = [Math.floor(targetPos[0] / 64), Math.floor(targetPos[1] / 64)];
+
+            if (newTileCoords[0] < 0 || newTileCoords[0] > this.map.cols)
+                return DELETE;
+            if (newTileCoords[1] < 0 || newTileCoords[1] > this.map.rows)
+                return DELETE;
+
+            newTile = newTileCoords[0] + newTileCoords[1] * this.map.cols;
         }
 
         return newTile;
@@ -211,7 +221,6 @@ export class GameMap {
         const that = this;
         function ontickForTileMap(map) {
             const updates = new Map();
-
             // Let every entity in the game update for this tick
             map.forEach((entities, tile) => {
 
@@ -227,8 +236,7 @@ export class GameMap {
                     // TODO create query callbacks as well
                     const newTile = entity.ontick(movementCB, eventCB, queryEnemiesCB);
 
-                    // Don't update
-                    if (newTile < 0)
+                    if (newTile == DONTUPDATE)
                         return;
 
                     if (newTile != tile) {
@@ -264,9 +272,11 @@ export class GameMap {
                         if (oldTileList.length == 0)
                             map.delete(oldTile);
 
-                        if (!map.has(newTile))
-                            map.set(newTile, [])
-                        map.get(newTile).push(entity);
+                        if (newTile != DELETE) {
+                            if (!map.has(newTile))
+                                map.set(newTile, [])
+                            map.get(newTile).push(entity);
+                        }
                     }
                 });
             });

@@ -29,4 +29,14 @@ export class VMath {
             return Math.sqrt(Math.pow(x[0], 2) + Math.pow(x[1], 2));
         return x;
     }
+
+    static copy(x) {
+        if (x instanceof Array) {
+            const xCopy = [];
+            x.forEach(e => xCopy.push(e));
+            return xCopy;
+        }
+
+        return x;
+    }
 }

@@ -125,7 +125,7 @@ class FoxTower extends Tower {
         return super.ontick((_velIsDir, _vel, _rot, sprite) => {
             const queryRes = queryEnemiesCB(this.range, true);
 
-            const enemies = queryRes.enemies;
+            const enemies = queryRes.enemies.filter(e => !e.enemy.isFlying);
             const selfCoords = queryRes.selfCoords;
 
             if (enemies.length && this.rotationSpeed) {

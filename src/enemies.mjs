@@ -1,23 +1,16 @@
 import {Entity} from './entity.mjs'
 import {DeathEvent} from './events.mjs'
+import {VMath} from './vmath.mjs'
+import {DONTUPDATE} from './gamemap.mjs'
 
 export class Enemy extends Entity {
-    spriteFrames = {
-        idle: {
-            frames: [],
-            tpt: 0,
-        },
-        dying: {
-            frames: [],
-            tpt: 0,
-        },
-    }
-
     hp = 0
     velocity = [0, 0] // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
     strength = 0 // attack strength when reaching tower
+
+    isFlying = false
 
     spawnOnDeath = [] // enemies to spawn on death
     resistances = [] // Resistances to attack types
@@ -29,31 +22,15 @@ export class Enemy extends Entity {
         this._spawnID = spawnID;
         this._diceRoll = diceRoll;
 
-        this._currentFrameSet = "idle"
-        this._currentSpriteFrame = 0;
         this._statusEffects = [];
-        this._ticksSinceTransition = 0;
     }
 
     get spawnID() { return this._spawnID; }
 
     ontick(movementCallback, eventsCallback) {
-        const frameSet = this.spriteFrames[this._currentFrameSet];
-        const sprite = frameSet.frames[this._currentSpriteFrame];
-        if (frameSet.tpt > 0) {
-            this._ticksSinceTransition += 1;
-            if (this._ticksSinceTransition >= frameSet.tpt) {
-                this._currentSpriteFrame += 1;
-                this._currentSpriteFrame %= frameSet.frames.length;
-                this._ticksSinceTransition = 0;
+        const sprite = this.getSprite();
 
-                if (this._currentSpriteFrame == 0 && this._currentFrameSet != "idle") {
-                    this._currentFrameSet = "idle";
-                }
-            }
-        }
-
-        let currentVelocity = this.velocity;
+        let currentVelocity = VMath.copy(this.velocity);
         if (this.hp > 0) {
             // compute any status effects
             this._statusEffects.forEach((effect) => {
@@ -64,17 +41,17 @@ export class Enemy extends Entity {
                     this.hp -= effect.damagePerTick;
 
                 if (effect.velocityModifer)
-                    currentVelocity += effect.velocityModifier;
+                    currentVelocity = VMath.mul(currentVelocity, effect.velocityModifier);
             });
         } else {
-            currentVelocity = 0;
+            currentVelocity = VMath.mul(currentVelocity, 0);
         }
 
         if (this.hp == 0 && this._currentFrameSet == "idle") {
             eventsCallback([new DeathEvent()])
-            return -1;
+            return DONTUPDATE;
         } else
-            return movementCallback(false, currentVelocity, NaN, sprite);
+            return movementCallback(this.isFlying, currentVelocity, NaN, sprite);
     }
 
     ondamage(attack) {
