@@ -1,4 +1,56 @@
 <script type="module" src="./main.mjs"></script>
-<button id="step">step</button>
-<button id="spawn">spawn wave</button>
-<canvas id="display" style="height: 100%;"></canvas>
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", () => {
+        let oldrect = null;
+        const resizeHandler = () => {
+            const rect =
+                document.getElementById("display").getBoundingClientRect();
+            if (!oldrect ||
+                    rect.height != oldrect.height ||
+                    rect.width != oldrect.width) {
+                oldrect = rect;
+
+                document.getElementById("displaycontianer").style.width =
+                    `${rect.width}px`;
+                document.getElementById("displaycontianer").style.height =
+                    `${rect.height}px`;
+            }
+            requestAnimationFrame(resizeHandler);
+        };
+        resizeHandler();
+    });
+</script>
+<div>
+    <div id="console"  style="float: left; padding: 2px; width: 10%">
+        Debugging info:
+        <button id="step">step</button>
+        <p id="fps"></p>
+        <p id="entitycount"></p>
+    </div>
+    <div style="float: right; width: 85%;">
+        <div id="displaycontianer" style="float: left; margin-right: 1em;">
+            <canvas id="display" style="height: 100%;"></canvas>
+        </div>
+        <div id="menu" style="float: left;">
+            <h1>Menu</h1>
+            <hr>
+            <p id="money"></p>
+            <div id="foxbutton" style="border-style: solid; margin-bottom: 1em;">
+                <img src="../assets/foxTower.png" style="filter: invert(1); height: 2em"></img>
+                Fox Tower (10)
+            </div>
+            <div id="foxbutton1" style="border-style: solid; margin-bottom: 1em;">
+                <img src="../assets/foxTower.png" style="height: 2em"></img>
+                Fox Tower1 (15)
+            </div>
+            <div id="tacksbutton" style="border-style: solid; margin-bottom: 1em;">
+                <img src="../assets/thumbTacks.png" style="height: 2em"></img>
+                Thumb Tacks (1)
+            </div>
+            <hr>
+            <div style="float: bottom; border-style: solid;" id="spawn">
+                spawn wave
+            </div>
+        </div>
+    </div>
+</div>

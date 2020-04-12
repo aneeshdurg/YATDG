@@ -21,7 +21,7 @@ export class GameMap {
         this.ctx = canvas.getContext("2d");
 
         // Set of indexes where towers can be placed
-        this.legalTowerPositionsSet = new Set(map.legalTowerPositionsSet);
+        this.legalTowerPositionsSet = new Set(map.legalTowerTiles);
 
         function edgeMapToMap(edgeMap) {
             const realMap = new Map();
@@ -49,6 +49,8 @@ export class GameMap {
         this.tileEnemiesMap = new Map();
         this.tileAttacksMap = new Map();
     }
+
+    onrender() {}
 
     computeDistanceToBase(tile) {
         if (tile == this.baseTile)
@@ -265,10 +267,14 @@ export class GameMap {
                             }
 
                             if (e.spawn) {
-                                if (!map.has(oldTile))
-                                    map.set(oldTile, []);
+                                let spawnMap = map;
+                                if (e.isAttack)
+                                    spawnMap = that.tileAttacksMap;
+
+                                if (!spawnMap.has(oldTile))
+                                    spawnMap.set(oldTile, []);
                                 e.spawn.forEach(s => {
-                                    map.get(oldTile).push(s);
+                                    spawnMap.get(oldTile).push(s);
                                 });
                             }
                         });
@@ -293,7 +299,7 @@ export class GameMap {
 
         ontickForTileMap(this.tileTowersMap);
         ontickForTileMap(this.tileEnemiesMap);
-        // ontickForTileMap(this.tileAttacksMap);
+        ontickForTileMap(this.tileAttacksMap);
 
         this.tileTowersMap.forEach((towers, tile) => {
             towers.forEach((tower, tIdx) => {
@@ -307,7 +313,19 @@ export class GameMap {
 
         });
 
-        // TODO check every tile for collisions between enemies/attacks and
-        // between tower enemies' ranges and towers.
+        this.tileAttacksMap.forEach((attacks, tile) => {
+            attacks.forEach((attack, tIdx) => {
+                if (this.tileEnemiesMap.has(tile)) {
+                    this.tileEnemiesMap.get(tile).forEach(enemy => {
+                        if (enemy.hp)
+                            attack.onenemy(enemy);
+                    });
+                }
+            });
+
+        });
+
+
+        this.onrender(this.ctx, this.spriteList);
     }
 }

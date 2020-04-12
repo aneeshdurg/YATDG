@@ -4,7 +4,7 @@ import {Enemy} from "../src/enemies.mjs"
 import {GameMap} from "../src/gamemap.mjs"
 import {HPBar} from "../src/hpbar.mjs"
 import {Obstacle} from "../src/obstacles.mjs"
-import {SpawnEvent} from "../src/events.mjs"
+import {AttackEvent, SpawnEvent} from "../src/events.mjs"
 import {Sprite, StatusEffect, Attack} from "../src/entity.mjs"
 import {Tower, TowerAbility} from "../src/towers.mjs"
 import {VMath} from "../src/vmath.mjs"
@@ -19,6 +19,8 @@ class IDVendor {
     }
 }
 const vendor = new IDVendor();
+
+let playerMoney = 100;
 
 const spriteList = [
     "../assets/enemy/0.png",
@@ -114,6 +116,14 @@ class BasicEnemy extends Enemy {
 
         return retval;
     }
+
+    ondeath(ecb) {
+        super.ondeath(ecb);
+        if (!this._deathByBase)
+            playerMoney += 1;
+    }
+
+
 }
 
 var gameover = false;
@@ -281,7 +291,7 @@ class FoxTower extends Tower {
                         b.position = x;
                         b.setTower(this);
                         b.setDirection([-Math.sin(this.rotation), Math.cos(this.rotation)]);
-                        eventsCallback([new SpawnEvent([b])]);
+                        eventsCallback([new AttackEvent([b])]);
                     }
                 });
             }
@@ -307,6 +317,8 @@ class ThumbTack extends Obstacle {
             tpt: 0, // tpt == ticksPerSpriteTransition
         },
     }
+
+    position = [32, 32]
 
     hp = 10
 
@@ -374,12 +386,10 @@ async function main() {
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
 
-    function ft(tile, p) {
-        if (Math.random() < p)
-            return;
+    function ft(tile, invert) {
         const tower = new FoxTower(vendor.id);
         tower.position = [map.tsize / 2, map.tsize / 2];
-        if (Math.random() < 0.5) {
+        if (invert) {
             tower.priority = "last";
             tower.spriteFrames.idle.frames[0].filter = `invert(1)`;
         } else {
@@ -388,11 +398,73 @@ async function main() {
         gamemap.tileTowersMap.set(tile, [tower]);
     }
 
-    for (let tile of map.legalTowerTiles)
-        ft(tile, 0.5);
+    function getTileCoords(e, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        let mousePos = VMath.sub([e.clientX, e.clientY], [rect.left, rect.top]);
+        mousePos = VMath.mul(mousePos, [
+            canvas.width / (rect.right - rect.left),
+            canvas.height / (rect.bottom - rect.top),
+        ]);
+        const tileCoords = VMath.mul(mousePos, 1 / map.tsize).map(Math.floor);
+        const tile = tileCoords[1] * map.cols + tileCoords[0];
+        const position = mousePos.map(x => x % map.tsize);
+        return {
+            mousePos: mousePos,
+            tileCoords: tileCoords,
+            tile: tile,
+            position: position,
+        };
+    }
+
+    let lastClickedID = "";
+
+    const buttons = [
+        document.getElementById("foxbutton"),
+        document.getElementById("foxbutton1"),
+        document.getElementById("tacksbutton")];
+
+    const setLastClicked = (e) => {
+        buttons.forEach(button => { button.style.background = ""; });
+        if (lastClickedID != e.target.id) {
+            lastClickedID = e.target.id;
+            e.target.style.background = "#2b2b2b";
+        } else {
+            lastClickedID = "";
+        }
+    };
+
+    buttons.forEach(button => { button.addEventListener("click", setLastClicked); });
+
+    canvas.addEventListener("click", e => {
+        const coords = getTileCoords(e, canvas);
+        if (lastClickedID == "foxbutton") {
+            if (playerMoney < 10 || !gamemap.legalTowerPositionsSet.has(coords.tile))
+                return;
+
+            playerMoney -= 10;
+            ft(coords.tile, true);
+        } else if (lastClickedID == "foxbutton1") {
+            if (playerMoney < 15 || !gamemap.legalTowerPositionsSet.has(coords.tile))
+                return;
+
+            playerMoney -= 15;
+            ft(coords.tile, false);
+        } else if (lastClickedID == "tacksbutton") {
+            if (playerMoney < 1 || !gamemap.edgeMap.has(coords.tile))
+                return;
+
+            playerMoney -= 1;
+            const newtacks = new ThumbTack(vendor.id);
+            if (!gamemap.tileTowersMap.has(coords.tile))
+                gamemap.tileTowersMap.set(coords.tile, []);
+            gamemap.tileTowersMap.get(coords.tile).push(newtacks);
+        }
+    });
+
+    // for (let tile of map.legalTowerTiles)
+    //     ft(tile, 0.5);
 
     const tacks = new ThumbTack(vendor.id);
-    tacks.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(237, [tacks]);
 
 
@@ -401,10 +473,11 @@ async function main() {
     gamemap.tileTowersMap.set(97, [tacks1]);
 
 
-    const msPerTick = 1000 / 90;
+    const msPerTick = 1000 / 60;
 
+    let smul = 1;
     async function spawnWave() {
-        let spawnLimit = 100;
+        let spawnLimit = 10 * (smul++);
         document.getElementById("spawn").onclick = () => {};
         let _resolver = null;
         const p = new Promise(r => { _resolver = r; });
@@ -448,16 +521,25 @@ async function main() {
                 _resolver();
         }, msPerTick * 5);
         await p;
+        if (!gameover)
+            playerMoney += 50;
         document.getElementById("spawn").onclick = spawnWave;
     }
-    spawnWave();
+    document.getElementById("spawn").onclick = spawnWave;
+    //spawnWave();
 
     let lastTickTime = 0;
     function render(request) {
         const currTime = (new Date()).getTime();
-        if (!request || (currTime - lastTickTime > msPerTick)) {
+        const delta = currTime - lastTickTime;
+        if (!request || (delta > msPerTick)) {
             lastTickTime = currTime;
             gamemap.ontick();
+            document.getElementById("money").innerText = `Money: ${playerMoney}`;
+            const mspf = (new Date()).getTime() - currTime + delta;
+            const fps = Math.round(1000 / mspf);
+            document.getElementById("fps").innerText = `FPS: ${fps}`;
+            document.getElementById("entitycount").innerText = `Entity Count: ${vendor._id}`;
         }
 
         if (request && !gameover)
