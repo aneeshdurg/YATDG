@@ -1,9 +1,31 @@
 import {Entity} from './entity.mjs'
 import {DeathEvent} from './events.mjs'
 
+export class TowerAbility {
+    cooldown = 0 // ticks before this ability can be used again
+    ability = null // instance of Bullet
+
+    _cooldownTimer = 0
+
+    ontick(velocity, enemyDirection) {
+        if (this._cooldownTimer > 0)
+            this._cooldownTimer -= 1;
+
+        if (this._cooldownTimer == 0) {
+            this._cooldownTimer = this.cooldown;
+            return this.ability;
+        }
+    }
+}
+
+// give towers an ability field, use spawn events to spawn the bullets. Might
+// need a flag on spawn to indicate that the entity being spawned is a different
+// type
+
 export class Tower extends Entity {
     hp = 0
     range = 0 // range in tiles
+    abilities = []
 
     constructor(spawnID) {
         super();

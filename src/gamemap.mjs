@@ -263,7 +263,14 @@ export class GameMap {
                                     map.delete(oldTile);
                                 counter++;
                             }
-                            // TODO e.spawn
+
+                            if (e.spawn) {
+                                if (!map.has(oldTile))
+                                    map.set(oldTile, []);
+                                e.spawn.forEach(s => {
+                                    map.get(oldTile).push(s);
+                                });
+                            }
                         });
                     } else {
                         const oldTileList = map.get(oldTile);

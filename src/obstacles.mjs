@@ -1,6 +1,7 @@
 import {Tower} from './towers.mjs'
 import {Attack} from './entity.mjs'
 import {DeathEvent} from './events.mjs'
+import {DONTUPDATE} from './gamemap.mjs'
 
 class ObstacleAttack extends Attack {
     constructor(damage) {
@@ -12,15 +13,15 @@ class ObstacleAttack extends Attack {
 export class Obstacle extends Tower {
     hp = 0
 
-    ondeath() {
-        return new DeathEvent();
+    ondeath(eventCB) {
+        eventCB([new DeathEvent()]);
     }
 
-    ontick(moveCb, eventCb) {
-        const retval = super.ontick(moveCb, eventCb);
+    ontick(moveCB, eventCB) {
+        const retval = super.ontick(moveCB, eventCB);
         if (this.hp == 0) {
-            eventCb([new DeathEvent()]);
-            return -1;
+            this.ondeath(eventCB);
+            return DONTUPDATE;
         }
         return retval;
     }
@@ -29,9 +30,7 @@ export class Obstacle extends Tower {
         if (this.spriteFrames["damage"] && this._currentFrameSet != "damage")
             this._currentFrameSet = "damage";
         this.hp -= atk;
-        if (this.hp == 0)
-            return this.ondeath();
-        return;
+        this.hp = Math.max(this.hp, 0);
     }
 
     onenemy(enemy) {

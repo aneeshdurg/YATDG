@@ -1,11 +1,24 @@
-import {GameMap} from "../src/gamemap.mjs"
-import {Sprite} from "../src/entity.mjs"
-import {Enemy} from "../src/enemies.mjs"
 import {Base} from "../src/base.mjs"
-import {Tower} from "../src/towers.mjs"
-import {Obstacle} from "../src/obstacles.mjs"
+import {Bullet} from "../src/bullets.mjs"
+import {Enemy} from "../src/enemies.mjs"
+import {GameMap} from "../src/gamemap.mjs"
 import {HPBar} from "../src/hpbar.mjs"
+import {Obstacle} from "../src/obstacles.mjs"
+import {SpawnEvent} from "../src/events.mjs"
+import {Sprite, Attack} from "../src/entity.mjs"
+import {Tower, TowerAbility} from "../src/towers.mjs"
 import {VMath} from "../src/vmath.mjs"
+
+class IDVendor {
+    constructor() {
+        this._id = 0;
+    }
+
+    get id() {
+        return this._id++;
+    }
+}
+const vendor = new IDVendor();
 
 const spriteList = [
     "../assets/enemy/0.png",
@@ -21,6 +34,8 @@ const spriteList = [
     "../assets/base/2.png",
 
     "../assets/foxTower.png",
+    "../assets/arrow.png",
+
     "../assets/thumbTacks.png",
 ];
 
@@ -31,6 +46,9 @@ class LookupSprite extends Sprite {
 }
 
 class BasicEnemy extends Enemy {
+    // TODO don't hardcode this
+    position = [32, 32]
+
     spriteFrames = {
         idle: {
             frames: [
@@ -56,8 +74,40 @@ class BasicEnemy extends Enemy {
     range = 0 // radius of range for tower attacks in blocks
     strength = 1
 
-    spawnOnDeath = [] // enemies to spawn on death
     resistances = [] // Resistances to attack types
+
+    _spawnedChildren = false;
+
+    ontick(movementCallback, eventsCallback) {
+        const retval = super.ontick(movementCallback, eventsCallback);
+        if (this.hp == 0 && !this._spawnedChildren && this.velocity != 0.05 && !this._deathByBase) {
+            this._spawnedChildren = true;
+
+            const e1 = new BasicEnemy(vendor.id, Math.random());
+            e1.position[0] = Math.floor(Math.random() * this.position[0]);
+            e1.position[1] = Math.floor(Math.random() * this.position[1]);
+            e1.spriteFrames.idle.frames.map(f => {
+                f.filter = 'grayscale(1)';
+            });
+            e1.spriteFrames.dying.frames.map(f => {
+                f.filter = 'grayscale(1)';
+            });
+
+            const e2 = new BasicEnemy(vendor.id, Math.random());
+            e2.position[0] = Math.floor(Math.random() * this.position[0]);
+            e2.position[1] = Math.floor(Math.random() * this.position[1]);
+            e2.spriteFrames.idle.frames.map(f => {
+                f.filter = 'grayscale(1)';
+            });
+            e2.spriteFrames.dying.frames.map(f => {
+                f.filter = 'grayscale(1)';
+            });
+
+            eventsCallback([new SpawnEvent([e1, e2])]);
+        }
+
+        return retval;
+    }
 }
 
 var gameover = false;
@@ -102,16 +152,41 @@ class BasicBase extends Base {
     }
 }
 
+class ArrowAttack extends Attack {
+    damage = 1
+    // TODO add a status effect
+}
+
+class Arrow extends Bullet {
+    spriteFrames = {
+        idle: {
+            frames: [new LookupSprite("arrow.png")],
+            tpt: 0,
+        },
+    }
+
+    velocityMagnitude = 0.1
+    lifespan = 20
+    pierce = 1
+    attack = new ArrowAttack()
+}
+
+class ArrowAbility extends TowerAbility {
+    cooldown = 10
+    ability = Arrow
+}
+
 class FoxTower extends Tower {
     spriteFrames = {
         idle: {
             frames: [new LookupSprite("foxTower.png")],
-            tpt: 0, // tpt == ticksPerSpriteTransition
+            tpt: 0,
         },
     }
 
     hp = 1
     range = 4
+    abilities = [new ArrowAbility()]
 
     rotationSpeed = 0.1 // in radians per tick
     priority = "first"
@@ -150,6 +225,18 @@ class FoxTower extends Tower {
                     minAngle = Math.sign(minAngle) * this.rotationSpeed;
 
                 this.rotation += minAngle;
+
+                this.abilities.forEach(ability => {
+                    const bullet =  ability.ontick();
+                    // TODO add some way to spawn this into a different map
+                    // instead of the tower map.
+                    if (bullet) {
+                        const b = new bullet();
+                        b.setTower(this);
+                        b.setDirection([Math.cos(this.rotation), -Math.sin(this.rotation)]);
+                        eventsCallback([new SpawnEvent([b])]);
+                    }
+                });
             }
 
             return movementCallback(false, 0, this.rotation, sprite);
@@ -236,12 +323,14 @@ async function main() {
         },
         canvas);
 
-    const base = new BasicBase(0);
+    const base = new BasicBase(vendor.id);
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
 
-    function ft(id, tile) {
-        const tower = new FoxTower(id);
+    function ft(tile) {
+        if (Math.random() < 0.75)
+            return;
+        const tower = new FoxTower(vendor.id);
         tower.position = [map.tsize / 2, map.tsize / 2];
         if (Math.random() < 0.5) {
             tower.priority = "last";
@@ -250,16 +339,15 @@ async function main() {
         gamemap.tileTowersMap.set(tile, [tower]);
     }
 
-    let startID = 999;
     for (let tile of map.legalTowerTiles)
-        ft(startID++, tile);
+        ft(tile);
 
-    const tacks = new ThumbTack(300);
+    const tacks = new ThumbTack(vendor.id);
     tacks.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(237, [tacks]);
 
 
-    const tacks1 = new ThumbTack(301);
+    const tacks1 = new ThumbTack(vendor.id);
     tacks1.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(97, [tacks1]);
 
@@ -270,7 +358,7 @@ async function main() {
 
     setInterval(function() {
         if (spawnLimit) {
-            const enemy = new BasicEnemy(10 - spawnLimit, Math.random());
+            const enemy = new BasicEnemy(vendor.id, Math.random());
             enemy.position = [map.tsize / 2, map.tsize / 2];
             let i = 1;
             if (Math.random() < 0.75) {
@@ -286,12 +374,11 @@ async function main() {
                 i -= 0.25;
             }
 
-            // enemy.velocity = 0.05;
-
             if (i == 0.25)
                 i = 0;
             else if (i == 0.5)
                 i = 0.25;
+
             enemy.spriteFrames.idle.frames.map(f => {
                 f.filter = `invert(${i})`;
             });
@@ -301,11 +388,6 @@ async function main() {
             });
 
             spawnLimit--;
-
-            // const enemy1 = new BasicEnemy(10 - spawnLimit, 0.9 / 99);
-            // enemy1.position = [map.tsize / 2, map.tsize / 2];
-            // spawnLimit--;
-            // console.log(enemy.spawnID, enemy1.spawnID);
 
             if (!gamemap.tileEnemiesMap.has(96))
                 gamemap.tileEnemiesMap.set(96, []);

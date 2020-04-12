@@ -9,10 +9,7 @@ export class Enemy extends Entity {
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
     strength = 0 // attack strength when reaching tower
-
     isFlying = false
-
-    spawnOnDeath = [] // enemies to spawn on death
     resistances = [] // Resistances to attack types
 
     // spawnID should be a monotonically increase ID for all enemies spawned in
@@ -23,9 +20,14 @@ export class Enemy extends Entity {
         this._diceRoll = diceRoll;
 
         this._statusEffects = [];
+        this._deathByBase = false;
     }
 
     get spawnID() { return this._spawnID; }
+
+    ondeath(eventsCallback) {
+        eventsCallback([new DeathEvent()])
+    }
 
     ontick(movementCallback, eventsCallback) {
         const sprite = this.getSprite();
@@ -48,7 +50,7 @@ export class Enemy extends Entity {
         }
 
         if (this.hp == 0 && this._currentFrameSet == "idle") {
-            eventsCallback([new DeathEvent()])
+            this.ondeath(eventsCallback);
             return DONTUPDATE;
         } else
             return movementCallback(this.isFlying, currentVelocity, NaN, sprite);
@@ -64,6 +66,8 @@ export class Enemy extends Entity {
             this.hp = 0;
             if (this.spriteFrames["dying"])
                 this._currentFrameSet = "dying";
+            if (attack.type == "BASE")
+                this._deathByBase = true;
             return;
         }
 

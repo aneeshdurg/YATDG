@@ -39,4 +39,21 @@ export class VMath {
 
         return x;
     }
+
+    static equal(x, y) {
+        const xArr = x instanceof Array;
+        const yArr = y instanceof Array;
+        if (!xArr && !yArr)
+            return x == y;
+        else if (xArr && yArr) {
+            if (x.length != y.length)
+                return false;
+            for (let i = 0; i < x.length; i++) {
+                if (x[i] != y[i])
+                    return false
+            }
+            return true;
+        } else
+            return false;
+    }
 }

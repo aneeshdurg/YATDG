@@ -7,3 +7,9 @@ export class Event {
 export class DeathEvent {
     remove = true
 }
+
+export class SpawnEvent {
+    constructor(entitiesToSpawn) {
+        this.spawn = entitiesToSpawn;
+    }
+}

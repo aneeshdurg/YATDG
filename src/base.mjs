@@ -19,6 +19,7 @@ export class Base extends Tower {
         this.ondamage(enemy.strength);
         const atk = new Attack();
         atk.damage = enemy.hp;
+        atk.type = "BASE";
         enemy.ondamage(atk);
     }
 }
