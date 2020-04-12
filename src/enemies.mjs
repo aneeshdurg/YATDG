@@ -36,15 +36,16 @@ export class Enemy extends Entity {
         if (this.hp > 0) {
             // compute any status effects
             this._statusEffects.forEach((effect) => {
-                if (effect.ticks >= 0)
-                    effect.ticks -= 1;
+                if (effect.duration > 0)
+                    effect.duration -= 1;
 
-                if (effect.damagePerTick > 0)
-                    this.hp -= effect.damagePerTick;
+                this.ondamage(effect);
 
-                if (effect.velocityModifer)
+                if (!isNaN(effect.velocityModifer))
                     currentVelocity = VMath.mul(currentVelocity, effect.velocityModifier);
             });
+
+            this._statusEffects = this._statusEffects.filter(effect => effect.duration);
         } else {
             currentVelocity = VMath.mul(currentVelocity, 0);
         }
@@ -79,5 +80,14 @@ export class Enemy extends Entity {
                 this._statusEffects.push(effect.copy());
             });
         }
+    }
+
+    onrender(ctx, spriteList) {
+        this._statusEffects.forEach(effect => {
+            const frame = effect.getFrameOnTick();
+            if (frame) {
+                ctx.drawImage(spriteList[frame.spriteID], -this.position[0] / 2, -this.position[1] / 2);
+            }
+        });
     }
 }

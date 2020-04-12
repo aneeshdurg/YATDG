@@ -68,15 +68,39 @@ export class Sprite {
     }
 }
 
-export class StatusEffect {
-    type = ""
-    damage = 0
-    duration = 0
-}
-
 export class Attack {
     damage = 0
     type = ""
     statusEffects = []
     effectChance = 0
+}
+
+export class StatusEffect extends Attack {
+    velocityModifier = NaN
+    sprites = new SpriteFrames()
+
+    _spriteFrame = 0
+    _ticksSinceTransition = 0
+
+    copy() {
+        const s = new StatusEffect();
+        s.type = this.type;
+        s.damage = this.damage;
+        s.duration = this.duration;
+        s.sprites = this.sprites;
+        return s;
+    }
+
+    getFrameOnTick() {
+        if (this.sprites.frames.length) {
+            this._ticksSinceTransition++;
+            if (this._ticksSinceTransition == this.sprites.tpt) {
+                this._ticksSinceTransition = 0;
+                this._spriteFrame++;
+                this._spriteFrame %= this.sprites.frames.length;
+            }
+            return this.sprites.frames[this._spriteFrame];
+        }
+        return null;
+    }
 }

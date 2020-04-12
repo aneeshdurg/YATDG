@@ -5,7 +5,7 @@ import {GameMap} from "../src/gamemap.mjs"
 import {HPBar} from "../src/hpbar.mjs"
 import {Obstacle} from "../src/obstacles.mjs"
 import {SpawnEvent} from "../src/events.mjs"
-import {Sprite, Attack} from "../src/entity.mjs"
+import {Sprite, StatusEffect, Attack} from "../src/entity.mjs"
 import {Tower, TowerAbility} from "../src/towers.mjs"
 import {VMath} from "../src/vmath.mjs"
 
@@ -35,6 +35,12 @@ const spriteList = [
 
     "../assets/foxTower.png",
     "../assets/arrow.png",
+    "../assets/flameArrow0.png",
+    "../assets/flameArrow1.png",
+    "../assets/flameArrow2.png",
+
+    "../assets/fire0.png",
+    "../assets/fire1.png",
 
     "../assets/thumbTacks.png",
 ];
@@ -68,7 +74,7 @@ class BasicEnemy extends Enemy {
         },
     }
 
-    hp = 1
+    hp = 10
     velocity = 0.05 // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
@@ -152,9 +158,47 @@ class BasicBase extends Base {
     }
 }
 
+class Burn extends StatusEffect {
+    damage = 0.5
+    duration = 20
+    type = "FIRE"
+    sprites = {
+        frames: [new LookupSprite("fire0.png"), new LookupSprite("fire1.png")],
+        tpt: 5
+    }
+}
+
+class FlameArrowAttack extends Attack {
+    damage = 1
+    statusEffects = [new Burn()]
+    effectChance = 0.25
+}
+
+class FlameArrow extends Bullet {
+    spriteFrames = {
+        idle: {
+            frames: [
+                new LookupSprite("flameArrow0.png"),
+                new LookupSprite("flameArrow1.png"),
+                new LookupSprite("flameArrow2.png"),
+            ],
+            tpt: 5,
+        },
+    }
+
+    velocityMagnitude = 0.4
+    lifespan = 10
+    pierce = 2
+    attack = new FlameArrowAttack()
+}
+
+class FlameArrowAbility extends TowerAbility {
+    cooldown = 20
+    ability = FlameArrow
+}
+
 class ArrowAttack extends Attack {
     damage = 1
-    // TODO add a status effect
 }
 
 class Arrow extends Bullet {
@@ -185,7 +229,7 @@ class FoxTower extends Tower {
     }
 
     hp = 1
-    range = 2
+    range = 3
     abilities = [new ArrowAbility()]
 
     rotationSpeed = 0.1 // in radians per tick
@@ -228,7 +272,7 @@ class FoxTower extends Tower {
                 this.rotation += minAngle;
 
                 this.abilities.forEach(ability => {
-                    const bullet =  ability.ontick();
+                    const bullet = ability.ontick();
                     // TODO add some way to spawn this into a different map
                     // instead of the tower map.
                     if (bullet) {
@@ -338,12 +382,14 @@ async function main() {
         if (Math.random() < 0.5) {
             tower.priority = "last";
             tower.spriteFrames.idle.frames[0].filter = `invert(1)`;
+        } else {
+            tower.abilities.push(new FlameArrowAbility());
         }
         gamemap.tileTowersMap.set(tile, [tower]);
     }
 
     for (let tile of map.legalTowerTiles)
-        ft(tile, 0.75);
+        ft(tile, 0.5);
 
     const tacks = new ThumbTack(vendor.id);
     tacks.position = [map.tsize / 2, map.tsize / 2];
@@ -355,48 +401,56 @@ async function main() {
     gamemap.tileTowersMap.set(97, [tacks1]);
 
 
-    const msPerTick = 1000 / 60;
+    const msPerTick = 1000 / 90;
 
-    let spawnLimit = 100;
+    async function spawnWave() {
+        let spawnLimit = 100;
+        document.getElementById("spawn").onclick = () => {};
+        let _resolver = null;
+        const p = new Promise(r => { _resolver = r; });
+        setInterval(function() {
+            if (spawnLimit) {
+                const enemy = new BasicEnemy(vendor.id, Math.random());
+                enemy.position = [map.tsize / 2, map.tsize / 2];
+                let i = 1;
+                if (Math.random() < 0.75) {
+                    enemy.velocity *= 2;
+                    i -= 0.25;
+                }
+                if (Math.random() < 0.5) {
+                    enemy.velocity *= 2;
+                    i -= 0.25;
+                }
+                if (Math.random() < 0.25) {
+                    enemy.velocity *= 2;
+                    i -= 0.25;
+                }
 
-    setInterval(function() {
-        if (spawnLimit) {
-            const enemy = new BasicEnemy(vendor.id, Math.random());
-            enemy.position = [map.tsize / 2, map.tsize / 2];
-            let i = 1;
-            if (Math.random() < 0.75) {
-                enemy.velocity *= 2;
-                i -= 0.25;
-            }
-            if (Math.random() < 0.5) {
-                enemy.velocity *= 2;
-                i -= 0.25;
-            }
-            if (Math.random() < 0.25) {
-                enemy.velocity *= 2;
-                i -= 0.25;
-            }
+                if (i == 0.25)
+                    i = 0;
+                else if (i == 0.5)
+                    i = 0.25;
 
-            if (i == 0.25)
-                i = 0;
-            else if (i == 0.5)
-                i = 0.25;
+                enemy.spriteFrames.idle.frames.map(f => {
+                    f.filter = `invert(${i})`;
+                });
 
-            enemy.spriteFrames.idle.frames.map(f => {
-                f.filter = `invert(${i})`;
-            });
+                enemy.spriteFrames.dying.frames.map(f => {
+                    f.filter = `invert(${i})`;
+                });
 
-            enemy.spriteFrames.dying.frames.map(f => {
-                f.filter = `invert(${i})`;
-            });
+                spawnLimit--;
 
-            spawnLimit--;
-
-            if (!gamemap.tileEnemiesMap.has(96))
-                gamemap.tileEnemiesMap.set(96, []);
-            gamemap.tileEnemiesMap.get(96).push(enemy);
-        }
-    }, msPerTick * 5);
+                if (!gamemap.tileEnemiesMap.has(96))
+                    gamemap.tileEnemiesMap.set(96, []);
+                gamemap.tileEnemiesMap.get(96).push(enemy);
+            } else
+                _resolver();
+        }, msPerTick * 5);
+        await p;
+        document.getElementById("spawn").onclick = spawnWave;
+    }
+    spawnWave();
 
     let lastTickTime = 0;
     function render(request) {

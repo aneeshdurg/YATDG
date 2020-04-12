@@ -88,7 +88,7 @@ export class GameMap {
         this.ctx.filter = oldfilter;
         this.ctx.rotate(-rotation);
 
-        entity.onrender(this.ctx);
+        entity.onrender(this.ctx, this.spriteList);
 
         this.ctx.translate(-coords[0], -coords[1]);
     }
