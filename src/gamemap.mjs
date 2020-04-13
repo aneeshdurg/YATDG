@@ -315,6 +315,9 @@ export class GameMap {
 
         this.tileAttacksMap.forEach((attacks, tile) => {
             attacks.forEach((attack, tIdx) => {
+                // TODO check all other tiles that this sprite is rendered on
+                // and also for all enemies check all attacks that aren't
+                // covered here.
                 if (this.tileEnemiesMap.has(tile)) {
                     this.tileEnemiesMap.get(tile).forEach(enemy => {
                         if (enemy.hp)

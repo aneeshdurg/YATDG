@@ -1,13 +1,9 @@
-import {Base} from "../src/base.mjs"
-import {Bullet} from "../src/bullets.mjs"
-import {Enemy} from "../src/enemies.mjs"
 import {GameMap} from "../src/gamemap.mjs"
-import {HPBar} from "../src/hpbar.mjs"
-import {Obstacle} from "../src/obstacles.mjs"
-import {AttackEvent, SpawnEvent} from "../src/events.mjs"
-import {Sprite, StatusEffect, Attack} from "../src/entity.mjs"
-import {Tower, TowerAbility} from "../src/towers.mjs"
 import {VMath} from "../src/vmath.mjs"
+
+import {LookupSprite, spriteList} from "./sprites.mjs"
+import {BasicEnemy, BasicBoss} from "./enemies.mjs"
+import {BasicBase, FoxTower, FlameArrowAbility, ThumbTack} from "./towers.mjs"
 
 class IDVendor {
     constructor() {
@@ -18,317 +14,17 @@ class IDVendor {
         return this._id++;
     }
 }
-const vendor = new IDVendor();
+
+export const vendor = new IDVendor();
 
 let playerMoney = 100;
-
-const spriteList = [
-    "../assets/enemy/0.png",
-    "../assets/enemy/1.png",
-    "../assets/enemy/2.png",
-
-    "../assets/enemy/dying0.png",
-    "../assets/enemy/dying1.png",
-    "../assets/enemy/dying2.png",
-
-    "../assets/base/0.png",
-    "../assets/base/1.png",
-    "../assets/base/2.png",
-
-    "../assets/foxTower.png",
-    "../assets/arrow.png",
-    "../assets/flameArrow0.png",
-    "../assets/flameArrow1.png",
-    "../assets/flameArrow2.png",
-
-    "../assets/fire0.png",
-    "../assets/fire1.png",
-
-    "../assets/thumbTacks.png",
-];
-
-class LookupSprite extends Sprite {
-    constructor(name, filter) {
-        super(spriteList.findIndex(f => f.includes(name)), filter);
-    }
+export function updateMoney(delta) {
+    playerMoney += delta;
 }
 
-class BasicEnemy extends Enemy {
-    // TODO don't hardcode this
-    position = [32, 32]
-
-    spriteFrames = {
-        idle: {
-            frames: [
-                new LookupSprite("enemy/0.png"),
-                new LookupSprite("enemy/1.png"),
-                new LookupSprite("enemy/2.png"),
-            ],
-            tpt: 5,
-        },
-        dying: {
-            frames: [
-                new LookupSprite("enemy/dying0.png"),
-                new LookupSprite("enemy/dying1.png"),
-                new LookupSprite("enemy/dying2.png"),
-            ],
-            tpt: 3,
-        },
-    }
-
-    hp = 10
-    velocity = 0.05 // horzt/vert velocity in blocks per tick
-    attacksTowers = false
-    range = 0 // radius of range for tower attacks in blocks
-    strength = 1
-
-    resistances = [] // Resistances to attack types
-
-    _spawnedChildren = false;
-
-    ontick(movementCallback, eventsCallback) {
-        const retval = super.ontick(movementCallback, eventsCallback);
-        if (this.hp == 0 && !this._spawnedChildren && this.velocity != 0.05 && !this._deathByBase) {
-            this._spawnedChildren = true;
-
-            const e1 = new BasicEnemy(vendor.id, Math.random());
-            e1.position[0] = Math.floor(Math.random() * this.position[0]);
-            e1.position[1] = Math.floor(Math.random() * this.position[1]);
-            e1.spriteFrames.idle.frames.map(f => {
-                f.filter = 'grayscale(1)';
-            });
-            e1.spriteFrames.dying.frames.map(f => {
-                f.filter = 'grayscale(1)';
-            });
-
-            const e2 = new BasicEnemy(vendor.id, Math.random());
-            e2.position[0] = Math.floor(Math.random() * this.position[0]);
-            e2.position[1] = Math.floor(Math.random() * this.position[1]);
-            e2.spriteFrames.idle.frames.map(f => {
-                f.filter = 'grayscale(1)';
-            });
-            e2.spriteFrames.dying.frames.map(f => {
-                f.filter = 'grayscale(1)';
-            });
-
-            eventsCallback([new SpawnEvent([e1, e2])]);
-        }
-
-        return retval;
-    }
-
-    ondeath(ecb) {
-        super.ondeath(ecb);
-        if (!this._deathByBase)
-            playerMoney += 1;
-    }
-
-
-}
-
-var gameover = false;
-class BasicBase extends Base {
-    spriteFrames = {
-        idle: {
-            frames: [
-                new LookupSprite("base/0.png"),
-                new LookupSprite("base/1.png"),
-                new LookupSprite("base/2.png"),
-            ],
-            tpt: 5
-        }
-    }
-
-    hp = 100
-
-    constructor(spawnID) {
-        super(spawnID);
-        this.hpbar = new HPBar(this.hp, 64, 4);
-    }
-
-    ondeath() {
-        gameover = true;
-    }
-
-    ondamage(atk) {
-        super.ondamage(atk);
-        this.hpbar.update(this.hp);
-        const death = 1 - this.hp / this.hpbar.totalHP;
-        if (death != 1)
-            this.spriteFrames.idle.tpt = 5 + 20 * death;
-        else
-            this.spriteFrames.idle.tpt = 0;
-         this.spriteFrames.idle.frames.map(frame => { frame.filter = `grayscale(${death})`; });
-    }
-
-    onrender(ctx) {
-        ctx.translate(-this.position[0], -(this.position[1] + 1));
-        this.hpbar.render(ctx);
-        ctx.translate(this.position[0], this.position[1] + 1);
-    }
-}
-
-class Burn extends StatusEffect {
-    damage = 0.5
-    duration = 20
-    type = "FIRE"
-    sprites = {
-        frames: [new LookupSprite("fire0.png"), new LookupSprite("fire1.png")],
-        tpt: 5
-    }
-}
-
-class FlameArrowAttack extends Attack {
-    damage = 1
-    statusEffects = [new Burn()]
-    effectChance = 0.25
-}
-
-class FlameArrow extends Bullet {
-    spriteFrames = {
-        idle: {
-            frames: [
-                new LookupSprite("flameArrow0.png"),
-                new LookupSprite("flameArrow1.png"),
-                new LookupSprite("flameArrow2.png"),
-            ],
-            tpt: 5,
-        },
-    }
-
-    velocityMagnitude = 0.4
-    lifespan = 10
-    pierce = 2
-    attack = new FlameArrowAttack()
-}
-
-class FlameArrowAbility extends TowerAbility {
-    cooldown = 20
-    ability = FlameArrow
-}
-
-class ArrowAttack extends Attack {
-    damage = 1
-}
-
-class Arrow extends Bullet {
-    spriteFrames = {
-        idle: {
-            frames: [new LookupSprite("arrow.png")],
-            tpt: 0,
-        },
-    }
-
-    velocityMagnitude = 0.1
-    lifespan = 20
-    pierce = 1
-    attack = new ArrowAttack()
-}
-
-class ArrowAbility extends TowerAbility {
-    cooldown = 10
-    ability = Arrow
-}
-
-class FoxTower extends Tower {
-    spriteFrames = {
-        idle: {
-            frames: [new LookupSprite("foxTower.png")],
-            tpt: 0,
-        },
-    }
-
-    hp = 1
-    range = 3
-    abilities = [new ArrowAbility()]
-
-    rotationSpeed = 0.1 // in radians per tick
-    priority = "first"
-
-    constructor(spawnID) {
-        super(spawnID);
-        this.rotation = 0;
-    }
-
-    ontick(movementCallback, eventsCallback, queryEnemiesCB) {
-        return super.ontick((_velIsDir, _vel, _rot, sprite) => {
-            const queryRes = queryEnemiesCB(this.range, true);
-
-            const enemies = queryRes.enemies.filter(
-                e => !e.enemy.isFlying && (!e.enemy.hp == 0));
-            const selfCoords = queryRes.selfCoords;
-
-            if (enemies.length && this.rotationSpeed) {
-                if (this.priority == "first")
-                    enemies.sort((e1, e2) => e1.distanceToBase > e2.distanceToBase);
-                else if (this.priority == "last")
-                    enemies.sort((e1, e2) => e1.distanceToBase < e2.distanceToBase);
-
-                const enemyDescription = enemies[0];
-                const rotationVector = VMath.mul([1, -1], VMath.sub(selfCoords, enemyDescription.coords));
-                const theta = Math.atan2(...rotationVector);
-
-                let minAngle = theta - this.rotation;
-                let tmp = theta - ((2 * Math.PI) + this.rotation)
-                if (Math.abs(tmp) < Math.abs(minAngle))
-                    minAngle = tmp;
-                tmp = ((2 * Math.PI) + theta) - this.rotation;
-                if (Math.abs(tmp) < Math.abs(minAngle))
-                    minAngle = tmp;
-
-                if (Math.abs(minAngle) > this.rotationSpeed)
-                    minAngle = Math.sign(minAngle) * this.rotationSpeed;
-
-                this.rotation += minAngle;
-
-                this.abilities.forEach(ability => {
-                    const bullet = ability.ontick();
-                    // TODO add some way to spawn this into a different map
-                    // instead of the tower map.
-                    if (bullet) {
-                        const b = new bullet();
-                        const x = VMath.copy(this.position);
-                        b.position = x;
-                        b.setTower(this);
-                        b.setDirection([-Math.sin(this.rotation), Math.cos(this.rotation)]);
-                        eventsCallback([new AttackEvent([b])]);
-                    }
-                });
-            }
-
-            return movementCallback(false, 0, this.rotation, sprite);
-        });
-    }
-
-    onrender(ctx) {
-        //ctx.beginPath();
-        //// TODO don't hard code 64, maybe pass in gamemap.map instead?
-        //ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
-        //ctx.fillStyle = "#2b2b2b10"
-        //ctx.fill();
-        //ctx.stroke();
-    }
-}
-
-class ThumbTack extends Obstacle {
-    spriteFrames = {
-        idle: {
-            frames: [new LookupSprite("thumbTacks.png")],
-            tpt: 0, // tpt == ticksPerSpriteTransition
-        },
-    }
-
-    position = [32, 32]
-
-    hp = 10
-
-    ondamage(atk) {
-        const retval = super.ondamage(atk);
-        this.spriteFrames.idle.frames.map(frame => {
-            frame.filter = `opacity(${this.hp / 10})`;
-        });
-        return retval;
-    }
+let _gameover = false;
+export function gameover() {
+    _gameover = true;
 }
 
 async function readfile(url) {
@@ -435,8 +131,27 @@ async function main() {
 
     buttons.forEach(button => { button.addEventListener("click", setLastClicked); });
 
+    let selectedTower = null;
+
     canvas.addEventListener("click", e => {
+        if (selectedTower) {
+            selectedTower.rendersRange = false;
+            selectedTower = null;
+            return;
+        }
         const coords = getTileCoords(e, canvas);
+
+
+        if (gamemap.tileTowersMap.has(coords.tile)) {
+            const tileTowers = gamemap.tileTowersMap.get(coords.tile);
+            if (tileTowers.length == 1) {
+                selectedTower = tileTowers[0];
+                selectedTower.rendersRange = true;
+            }
+
+            return;
+        }
+
         if (lastClickedID == "foxbutton") {
             if (playerMoney < 10 || !gamemap.legalTowerPositionsSet.has(coords.tile))
                 return;
@@ -461,28 +176,18 @@ async function main() {
         }
     });
 
-    // for (let tile of map.legalTowerTiles)
-    //     ft(tile, 0.5);
-
-    const tacks = new ThumbTack(vendor.id);
-    gamemap.tileTowersMap.set(237, [tacks]);
-
-
-    const tacks1 = new ThumbTack(vendor.id);
-    tacks1.position = [map.tsize / 2, map.tsize / 2];
-    gamemap.tileTowersMap.set(97, [tacks1]);
-
-
     const msPerTick = 1000 / 60;
 
     let smul = 1;
     async function spawnWave() {
         let spawnLimit = 10 * (smul++);
+        if (smul == 10)
+            spawnLimit = 1;
         document.getElementById("spawn").onclick = () => {};
         let _resolver = null;
         const p = new Promise(r => { _resolver = r; });
         setInterval(function() {
-            if (spawnLimit) {
+            if (spawnLimit && smul != 10) {
                 const enemy = new BasicEnemy(vendor.id, Math.random());
                 enemy.position = [map.tsize / 2, map.tsize / 2];
                 let i = 1;
@@ -517,6 +222,15 @@ async function main() {
                 if (!gamemap.tileEnemiesMap.has(96))
                     gamemap.tileEnemiesMap.set(96, []);
                 gamemap.tileEnemiesMap.get(96).push(enemy);
+            } else if (smul == 10 && spawnLimit) {
+                console.log("Spawning boss");
+                spawnLimit--;
+                const enemy = new BasicBoss(vendor.id, Math.random());
+                enemy.position = [map.tsize / 2, map.tsize / 2];
+
+                if (!gamemap.tileEnemiesMap.has(96))
+                    gamemap.tileEnemiesMap.set(96, []);
+                gamemap.tileEnemiesMap.get(96).push(enemy);
             } else
                 _resolver();
         }, msPerTick * 5);
@@ -542,9 +256,9 @@ async function main() {
             document.getElementById("entitycount").innerText = `Entity Count: ${vendor._id}`;
         }
 
-        if (request && !gameover)
+        if (request && !_gameover)
             requestAnimationFrame(render);
-        else if (gameover)
+        else if (_gameover)
             alert("You lost!");
     }
 
