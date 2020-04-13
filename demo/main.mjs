@@ -1,5 +1,6 @@
 import {GameMap} from "../src/gamemap.mjs"
 import {VMath} from "../src/vmath.mjs"
+import {Obstacle} from "../src/obstacles.mjs"
 
 import {LookupSprite, spriteList} from "./sprites.mjs"
 import {BasicEnemy, BasicBoss} from "./enemies.mjs"
@@ -116,7 +117,6 @@ async function main() {
 
     const buttons = [
         document.getElementById("foxbutton"),
-        document.getElementById("foxbutton1"),
         document.getElementById("tacksbutton")];
 
     const setLastClicked = (e) => {
@@ -133,46 +133,104 @@ async function main() {
 
     let selectedTower = null;
 
-    canvas.addEventListener("click", e => {
+    const menu = document.getElementById("menu");
+    const upgrademenu = document.getElementById("upgrademenu");
+
+    function selectTower(tower) {
+        menu.style.display = "none";
+
+        upgrademenu.style.display = "";
+        upgrademenu.innerHTML = `<h2>${tower.name}</h2><hr>`;
+
+        tower.onselect(upgrademenu);
+
+        tower.upgrades.currentLeaves.forEach((upgrade, id) => {
+            const upgradebtn = document.createElement("div");
+            upgradebtn.style = "border-style: solid; margin-bottom: 1em";
+            if (upgrade.icon) {
+                //  TODO display icon
+            }
+
+            upgradebtn.innerHTML += `${upgrade.description}<br>Price: ${upgrade.price}`;
+            upgradebtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // TODO grey out btn until money is sufficient
+                if (playerMoney < upgrade.price)
+                    return;
+
+                playerMoney -= upgrade.price;
+                tower.upgrades.upgrade(upgrade);
+                selectTower(tower);
+            };
+            upgrademenu.appendChild(upgradebtn);
+        });
+
+        tower.rendersRange = true;
+        selectedTower = tower;
+    }
+
+    function deselectTower() {
+        menu.style.display = "";
+        upgrademenu.style.display = "none";
+        selectedTower.rendersRange = false;
+        selectedTower = null;
+    }
+
+    document.getElementById("container").addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (selectedTower) {
-            selectedTower.rendersRange = false;
-            selectedTower = null;
+            deselectTower();
             return;
         }
-        const coords = getTileCoords(e, canvas);
+    });
 
+    canvas.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let noActions = false;
+        if (selectedTower) {
+            deselectTower();
+            noActions = true;
+        }
+
+        const coords = getTileCoords(e, canvas);
 
         if (gamemap.tileTowersMap.has(coords.tile)) {
             const tileTowers = gamemap.tileTowersMap.get(coords.tile);
-            if (tileTowers.length == 1) {
-                selectedTower = tileTowers[0];
-                selectedTower.rendersRange = true;
+            if (tileTowers.length == 1 && !(tileTowers[0] instanceof Obstacle)) {
+                selectTower(tileTowers[0]);
+                return;
             }
-
-            return;
         }
+
+        if (noActions)
+            return;
+
+        let newTower = null;
 
         if (lastClickedID == "foxbutton") {
             if (playerMoney < 10 || !gamemap.legalTowerPositionsSet.has(coords.tile))
                 return;
 
             playerMoney -= 10;
-            ft(coords.tile, true);
-        } else if (lastClickedID == "foxbutton1") {
-            if (playerMoney < 15 || !gamemap.legalTowerPositionsSet.has(coords.tile))
-                return;
-
-            playerMoney -= 15;
-            ft(coords.tile, false);
+            newTower = new FoxTower(vendor.id);
         } else if (lastClickedID == "tacksbutton") {
             if (playerMoney < 1 || !gamemap.edgeMap.has(coords.tile))
                 return;
 
             playerMoney -= 1;
-            const newtacks = new ThumbTack(vendor.id);
+            newTower = new ThumbTack(vendor.id);
+        }
+
+        if (newTower) {
             if (!gamemap.tileTowersMap.has(coords.tile))
                 gamemap.tileTowersMap.set(coords.tile, []);
-            gamemap.tileTowersMap.get(coords.tile).push(newtacks);
+            gamemap.tileTowersMap.get(coords.tile).push(newTower);
         }
     });
 
@@ -186,7 +244,7 @@ async function main() {
         document.getElementById("spawn").onclick = () => {};
         let _resolver = null;
         const p = new Promise(r => { _resolver = r; });
-        setInterval(function() {
+        let timer = setInterval(function() {
             if (spawnLimit && smul != 10) {
                 const enemy = new BasicEnemy(vendor.id, Math.random());
                 enemy.position = [map.tsize / 2, map.tsize / 2];
@@ -223,7 +281,6 @@ async function main() {
                     gamemap.tileEnemiesMap.set(96, []);
                 gamemap.tileEnemiesMap.get(96).push(enemy);
             } else if (smul == 10 && spawnLimit) {
-                console.log("Spawning boss");
                 spawnLimit--;
                 const enemy = new BasicBoss(vendor.id, Math.random());
                 enemy.position = [map.tsize / 2, map.tsize / 2];
@@ -235,15 +292,21 @@ async function main() {
                 _resolver();
         }, msPerTick * 5);
         await p;
-        if (!gameover)
+        if (!_gameover) {
             playerMoney += 50;
+            clearInterval(timer);
+        }
         document.getElementById("spawn").onclick = spawnWave;
     }
     document.getElementById("spawn").onclick = spawnWave;
     //spawnWave();
 
     let lastTickTime = 0;
+    let stopRendering = null;
+    let rendering = false;
     function render(request) {
+        if (request)
+            rendering = true;
         const currTime = (new Date()).getTime();
         const delta = currTime - lastTickTime;
         if (!request || (delta > msPerTick)) {
@@ -256,15 +319,29 @@ async function main() {
             document.getElementById("entitycount").innerText = `Entity Count: ${vendor._id}`;
         }
 
-        if (request && !_gameover)
+        if (request && !_gameover) {
+            if (stopRendering) {
+                stopRendering();
+                stopRendering = null;
+                rendering = false;
+                return;
+            }
             requestAnimationFrame(render);
+        }
         else if (_gameover)
             alert("You lost!");
     }
 
     render(true);
 
-    document.getElementById("step").onclick = () => { render(false); };
+    document.getElementById("step").onclick = async () => {
+        if (rendering) {
+            const p = new Promise(r => { stopRendering = r; });
+            await p;
+        }
+        render(false);
+    };
+    document.getElementById("resume").onclick = () => { render(true); };
 }
 
 document.addEventListener('DOMContentLoaded', (event) => {

@@ -9,6 +9,20 @@ import {VMath} from "../src/vmath.mjs"
 
 import {LookupSprite} from "./sprites.mjs"
 import {gameover} from "./main.mjs"
+import {FoxTowerUpgradeTree} from "./foxTowerUpgrades.mjs"
+
+export class DemoTower extends Tower {
+    upgrades = null // UpgradeTree
+    onselect(domnode) { }
+}
+
+export class DemoBase extends Base {
+    onselect(domnode) {}
+}
+
+export class DemoObstacle extends Obstacle {
+    onselect(domnode) {}
+}
 
 export class Burn extends StatusEffect {
     damage = 0.5
@@ -72,13 +86,17 @@ export class ArrowAbility extends TowerAbility {
     ability = Arrow
 }
 
-export class FoxTower extends Tower {
+export class FoxTower extends DemoTower {
+    name = "Fox Tower"
+
     spriteFrames = {
         idle: {
             frames: [new LookupSprite("foxTower.png")],
             tpt: 0,
         },
     }
+
+    position = [32, 32]
 
     hp = 1
     range = 3
@@ -92,6 +110,7 @@ export class FoxTower extends Tower {
     constructor(spawnID) {
         super(spawnID);
         this.rotation = 0;
+        this.upgrades = new FoxTowerUpgradeTree(this);
     }
 
     ontick(movementCallback, eventsCallback, queryEnemiesCB) {
@@ -127,9 +146,11 @@ export class FoxTower extends Tower {
 
                 this.abilities.forEach(ability => {
                     const bullet = ability.ontick();
-                    // TODO add some way to spawn this into a different map
-                    // instead of the tower map.
                     if (bullet) {
+                        Object.keys(ability.modifiers).forEach(k => {
+                            bullet[k] = ability.modifiers[k];
+                        });
+
                         const b = new bullet();
                         const x = VMath.copy(this.position);
                         b.position = x;
@@ -156,7 +177,9 @@ export class FoxTower extends Tower {
     }
 }
 
-export class ThumbTack extends Obstacle {
+export class ThumbTack extends DemoObstacle {
+    name = "Thumb Tacks"
+
     spriteFrames = {
         idle: {
             frames: [new LookupSprite("thumbTacks.png")],
@@ -177,7 +200,8 @@ export class ThumbTack extends Obstacle {
     }
 }
 
-export class BasicBase extends Base {
+export class BasicBase extends DemoBase {
+    name = "Base"
     spriteFrames = {
         idle: {
             frames: [
@@ -213,5 +237,9 @@ export class BasicBase extends Base {
         ctx.translate(-this.position[0], -(this.position[1] + 1));
         this.hpbar.render(ctx);
         ctx.translate(this.position[0], this.position[1] + 1);
+    }
+
+    onselect(domnode) {
+        domnode.innerHTML += `HP: ${this.hp}/${this.hpbar.totalHP}\n`;
     }
 }

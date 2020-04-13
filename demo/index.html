@@ -23,32 +23,35 @@
 <div>
     <div id="console"  style="float: left; padding: 2px; width: 10%">
         Debugging info:
+        <br>
         <button id="step">step</button>
+        <button id="resume">resume</button>
         <p id="fps"></p>
         <p id="entitycount"></p>
     </div>
-    <div style="float: right; width: 85%;">
+    <div id="container" style="float: right; width: 85%;">
         <div id="displaycontianer" style="float: left; margin-right: 1em;">
             <canvas id="display" style="height: 100%;"></canvas>
         </div>
-        <div id="menu" style="float: left;">
+        <div id="menucontainer" style="float: left; width: 20%">
             <h1>Menu</h1>
             <hr>
             <p id="money"></p>
-            <div id="foxbutton" style="border-style: solid; margin-bottom: 1em;">
-                <img src="../assets/foxTower.png" style="filter: invert(1); height: 2em"></img>
-                Fox Tower (10)
+            <div id="menu" style="width: 100%;">
+                <div id="foxbutton" style="border-style: solid; margin-bottom: 1em;">
+                    <img src="../assets/foxTower.png" style="filter: invert(1); height: 2em"></img>
+                    Fox Tower (10)
+                </div>
+                <div id="tacksbutton" style="border-style: solid; margin-bottom: 1em;">
+                    <img src="../assets/thumbTacks.png" style="height: 2em"></img>
+                    Thumb Tacks (1)
+                </div>
             </div>
-            <div id="foxbutton1" style="border-style: solid; margin-bottom: 1em;">
-                <img src="../assets/foxTower.png" style="height: 2em"></img>
-                Fox Tower1 (15)
+            <div id="upgrademenu" style="width: 100%; display: hidden;">
             </div>
-            <div id="tacksbutton" style="border-style: solid; margin-bottom: 1em;">
-                <img src="../assets/thumbTacks.png" style="height: 2em"></img>
-                Thumb Tacks (1)
-            </div>
+            <br>
             <hr>
-            <div style="float: bottom; border-style: solid;" id="spawn">
+            <div style="border-style: solid;" id="spawn">
                 spawn wave
             </div>
         </div>

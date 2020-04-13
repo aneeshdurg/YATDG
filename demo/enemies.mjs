@@ -27,7 +27,7 @@ export class BasicEnemy extends Enemy {
         },
     }
 
-    hp = 10
+    hp = 5
     velocity = 0.05 // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks

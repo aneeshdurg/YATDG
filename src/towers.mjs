@@ -4,6 +4,7 @@ import {DeathEvent} from './events.mjs'
 export class TowerAbility {
     cooldown = 0 // ticks before this ability can be used again
     ability = null // instance of Bullet
+    modifiers = {} // modifications to the bullet
 
     _cooldownTimer = 0
 
@@ -23,6 +24,8 @@ export class TowerAbility {
 // type
 
 export class Tower extends Entity {
+    name = ""
+
     hp = 0
     range = 0 // range in tiles
     abilities = []
