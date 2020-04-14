@@ -165,15 +165,22 @@ export class FoxTower extends DemoTower {
         });
     }
 
-    onrender(ctx) {
-        if (this.rendersRange) {
-            ctx.beginPath();
-            // TODO don't hard code 64, maybe pass in gamemap.map instead?
-            ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
-            ctx.fillStyle = "#2b2b2b40"
-            ctx.fill();
-            ctx.stroke();
-        }
+    onrender(ctx, spriteList, sprite) {
+        if (!this.rendersRange)
+            return false;
+
+        ctx.beginPath();
+        // TODO don't hard code 64, maybe pass in gamemap.map instead?
+        ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
+        ctx.fillStyle = "#2b2b2b40"
+        ctx.fill();
+        ctx.stroke();
+
+        const spriteImg = spriteList[sprite.spriteID];
+        ctx.rotate(this.rotation);
+        ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
+        ctx.rotate(-this.rotation);
+        return true;
     }
 }
 
@@ -237,6 +244,7 @@ export class BasicBase extends DemoBase {
         ctx.translate(-this.position[0], -(this.position[1] + 1));
         this.hpbar.render(ctx);
         ctx.translate(this.position[0], this.position[1] + 1);
+        return true;
     }
 
     onselect(domnode) {

@@ -83,11 +83,15 @@ export class Enemy extends Entity {
     }
 
     onrender(ctx, spriteList) {
+        let retval = false;
         this._statusEffects.forEach(effect => {
             const frame = effect.getFrameOnTick();
             if (frame) {
+                retval = true;
                 ctx.drawImage(spriteList[frame.spriteID], -this.position[0] / 2, -this.position[1] / 2);
             }
         });
+
+        return retval;
     }
 }

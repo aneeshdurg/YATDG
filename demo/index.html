@@ -20,8 +20,54 @@
         resizeHandler();
     });
 </script>
+
+<style>
+.button {
+    border-style: solid;
+    margin-bottom: 1em;
+    padding: 1em;
+    text-align: center;
+}
+
+.button:hover {
+    cursor: pointer;
+    border-style: dashed;
+}
+
+.button-selected {
+    border-style: dashed;
+    background: #2b2b2b40;
+}
+
+.button:active {
+    border-style: dashed;
+    background: #2b2b2b40;
+}
+
+.icon {
+    height: 2em;
+    vertical-align: middle;
+}
+
+.column {
+    float: left;
+    margin-right: 1em;
+    height: 100%;
+}
+
+.menu {
+    max-height: 75%;
+    overflow: auto;
+    width: 100%;
+}
+
+canvas {
+    height: 100%;
+}
+</style>
+
 <div>
-    <div id="console"  style="float: left; padding: 2px; width: 10%">
+    <div id="console" class="column" style="width: 10%">
         Debugging info:
         <br>
         <button id="step">step</button>
@@ -29,29 +75,29 @@
         <p id="fps"></p>
         <p id="entitycount"></p>
     </div>
-    <div id="container" style="float: right; width: 85%;">
-        <div id="displaycontianer" style="float: left; margin-right: 1em;">
-            <canvas id="display" style="height: 100%;"></canvas>
+    <div id="container" class="column" style="width: 85%;">
+        <div id="displaycontianer" class="column">
+            <canvas id="display"/>
         </div>
-        <div id="menucontainer" style="float: left; width: 20%">
+        <div id="menucontainer" class="column" style="width: 20%">
             <h1>Menu</h1>
             <hr>
-            <p id="money"></p>
-            <div id="menu" style="width: 100%;">
-                <div id="foxbutton" style="border-style: solid; margin-bottom: 1em;">
-                    <img src="../assets/foxTower.png" style="filter: invert(1); height: 2em"></img>
+            <p id="money"/>
+            <div id="menu" class="menu">
+                <div id="foxbutton" class="button">
+                    <img src="../assets/foxTower.png" class="icon"></img>
                     Fox Tower (10)
                 </div>
-                <div id="tacksbutton" style="border-style: solid; margin-bottom: 1em;">
-                    <img src="../assets/thumbTacks.png" style="height: 2em"></img>
-                    Thumb Tacks (1)
+                <div id="tacksbutton" class="button">
+                    <img src="../assets/thumbTacks.png" class="icon"></img>
+                    Thumb Tacks (5)
                 </div>
             </div>
-            <div id="upgrademenu" style="width: 100%; display: hidden;">
+            <div id="upgrademenu" class="menu" style="width: 100%;">
             </div>
             <br>
             <hr>
-            <div style="border-style: solid;" id="spawn">
+            <div class="button" id="spawn">
                 spawn wave
             </div>
         </div>

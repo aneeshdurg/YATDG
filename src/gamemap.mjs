@@ -18,7 +18,25 @@ export class GameMap {
 
         this.canvas.width = this.map.tsize * this.map.cols;
         this.canvas.height = this.map.tsize * this.map.rows;
-        this.ctx = canvas.getContext("2d");
+        this.ctx = canvas.getContext("2d", {alpha: false});
+
+        let background_canvas = document.createElement("canvas");
+        background_canvas.width = this.canvas.width;
+        background_canvas.height = this.canvas.height;
+        this.background = {
+            canvas: background_canvas,
+            ctx: background_canvas.getContext("2d"),
+            needsUpdate: true,
+        }
+
+        let foreground_canvas = document.createElement("canvas");
+        foreground_canvas.width = this.canvas.width;
+        foreground_canvas.height = this.canvas.height;
+        this.foreground = {
+            canvas: foreground_canvas,
+            ctx: foreground_canvas.getContext("2d"),
+            needsUpdate: false,
+        }
 
         // Set of indexes where towers can be placed
         this.legalTowerPositionsSet = new Set(map.legalTowerTiles);
@@ -89,10 +107,13 @@ export class GameMap {
 
         this.ctx.filter = oldfilter;
         this.ctx.rotate(-rotation);
-
-        entity.onrender(this.ctx, this.spriteList);
-
         this.ctx.translate(-coords[0], -coords[1]);
+
+        // Let the entity react to being rendered
+        this.foreground.ctx.translate(coords[0], coords[1]);
+        if (entity.onrender(this.foreground.ctx, this.spriteList, sprite))
+            this.foreground.needsUpdate = true;
+        this.foreground.ctx.translate(-coords[0], -coords[1]);
     }
 
     // Handles rendering and wall collisions. Returns tile that this entity
@@ -127,7 +148,6 @@ export class GameMap {
 
         const targetPos = VMath.add(currCoords, direction);
         rotation = isNaN(rotation) ? Math.atan2(direction[0], -direction[1]) : rotation;
-        this.renderEntity(sprite, entity, targetPos, rotation);
 
         let newTile = tile;
         if (moved) {
@@ -141,6 +161,7 @@ export class GameMap {
 
             newTile = newTileCoords[0] + newTileCoords[1] * this.map.cols;
         }
+        this.renderEntity(sprite, entity, targetPos, rotation);
 
         return newTile;
     }
@@ -194,29 +215,35 @@ export class GameMap {
     // queryTowersinRadius(entity, seeThroughWalls, radius)
 
     renderBackground() {
-        function getTile(map, col, row) {
-            return map.tiles[row * map.cols + col]
-        }
+        if (this.background.needsUpdate) {
+            this.background.needsUpdate = false;
 
-        for (let c = 0; c < this.map.cols; c++) {
-            for (let r = 0; r < this.map.rows; r++) {
-                let tile = getTile(this.map, c, r);
-                if (tile !== 0) { // 0 => empty tile
-                    const idx = tile - 1;
-                    this.ctx.drawImage(
-                        this.tilesetImg, // image
-                        (idx % this.tilesetTilesPerRow) * this.map.tsize, // source x
-                        Math.floor(idx / this.tilesetTilesPerRow) * this.map.tsize, // source y
-                        this.map.tsize, // source width
-                        this.map.tsize, // source height
-                        c * this.map.tsize, // target x
-                        r * this.map.tsize, // target y
-                        this.map.tsize, // target width
-                        this.map.tsize // target height
-                    );
+            function getTile(map, col, row) {
+                return map.tiles[row * map.cols + col]
+            }
+
+            for (let c = 0; c < this.map.cols; c++) {
+                for (let r = 0; r < this.map.rows; r++) {
+                    let tile = getTile(this.map, c, r);
+                    if (tile !== 0) { // 0 => empty tile
+                        const idx = tile - 1;
+                        this.background.ctx.drawImage(
+                            this.tilesetImg, // image
+                            (idx % this.tilesetTilesPerRow) * this.map.tsize, // source x
+                            Math.floor(idx / this.tilesetTilesPerRow) * this.map.tsize, // source y
+                            this.map.tsize, // source width
+                            this.map.tsize, // source height
+                            c * this.map.tsize, // target x
+                            r * this.map.tsize, // target y
+                            this.map.tsize, // target width
+                            this.map.tsize // target height
+                        );
+                    }
                 }
             }
         }
+
+        this.ctx.drawImage(this.background.canvas, 0, 0);
     }
 
     ontick() {
@@ -296,6 +323,7 @@ export class GameMap {
         }
 
         this.renderBackground();
+        this.foreground.ctx.clearRect(0, 0, this.foreground.canvas.width, this.foreground.canvas.height);
 
         ontickForTileMap(this.tileTowersMap);
         ontickForTileMap(this.tileEnemiesMap);
@@ -313,6 +341,11 @@ export class GameMap {
 
         });
 
+        if (this.foreground.needsUpdate) {
+            this.foreground.needsUpdate = false;
+            this.ctx.drawImage(this.foreground.canvas, 0, 0);
+        }
+
         this.tileAttacksMap.forEach((attacks, tile) => {
             attacks.forEach((attack, tIdx) => {
                 // TODO check all other tiles that this sprite is rendered on
@@ -327,7 +360,6 @@ export class GameMap {
             });
 
         });
-
 
         this.onrender(this.ctx, this.spriteList);
     }

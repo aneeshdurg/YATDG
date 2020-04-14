@@ -120,10 +120,10 @@ async function main() {
         document.getElementById("tacksbutton")];
 
     const setLastClicked = (e) => {
-        buttons.forEach(button => { button.style.background = ""; });
+        buttons.forEach(button => { button.classList.remove("button-selected"); });
         if (lastClickedID != e.target.id) {
             lastClickedID = e.target.id;
-            e.target.style.background = "#2b2b2b";
+            e.target.classList.add("button-selected");
         } else {
             lastClickedID = "";
         }
@@ -146,7 +146,8 @@ async function main() {
 
         tower.upgrades.currentLeaves.forEach((upgrade, id) => {
             const upgradebtn = document.createElement("div");
-            upgradebtn.style = "border-style: solid; margin-bottom: 1em";
+            upgradebtn.classList.add("button");
+            upgradebtn.style = "text-align: left";
             if (upgrade.icon) {
                 //  TODO display icon
             }
@@ -220,10 +221,10 @@ async function main() {
             playerMoney -= 10;
             newTower = new FoxTower(vendor.id);
         } else if (lastClickedID == "tacksbutton") {
-            if (playerMoney < 1 || !gamemap.edgeMap.has(coords.tile))
+            if (playerMoney < 5 || !gamemap.edgeMap.has(coords.tile))
                 return;
 
-            playerMoney -= 1;
+            playerMoney -= 5;
             newTower = new ThumbTack(vendor.id);
         }
 
@@ -293,7 +294,7 @@ async function main() {
         }, msPerTick * 5);
         await p;
         if (!_gameover) {
-            playerMoney += 50;
+            playerMoney += 10 * smul;
             clearInterval(timer);
         }
         document.getElementById("spawn").onclick = spawnWave;
@@ -315,7 +316,8 @@ async function main() {
             document.getElementById("money").innerText = `Money: ${playerMoney}`;
             const mspf = (new Date()).getTime() - currTime + delta;
             const fps = Math.round(1000 / mspf);
-            document.getElementById("fps").innerText = `FPS: ${fps}`;
+            const idk = mspf - delta;
+            document.getElementById("fps").innerText = `FPS: ${fps}, ${idk}`;
             document.getElementById("entitycount").innerText = `Entity Count: ${vendor._id}`;
         }
 
