@@ -18,9 +18,11 @@ export const spriteList = [
     "../assets/flameArrow0.png",
     "../assets/flameArrow1.png",
     "../assets/flameArrow2.png",
-
     "../assets/fire0.png",
     "../assets/fire1.png",
+
+    "../assets/spiderTower.png",
+    "../assets/web.png",
 
     "../assets/thumbTacks.png",
 

@@ -1,7 +1,7 @@
 import {SpawnEvent} from "../src/events.mjs"
 import {Enemy} from "../src/enemies.mjs"
 
-import {updateMoney, vendor} from "./main.mjs"
+import {gameover, updateMoney, vendor} from "./main.mjs"
 import {LookupSprite} from "./sprites.mjs"
 
 export class BasicEnemy extends Enemy {
@@ -28,7 +28,8 @@ export class BasicEnemy extends Enemy {
     }
 
     hp = 5
-    velocity = 0.05 // horzt/vert velocity in blocks per tick
+    static baseVelocity = 0.02
+    velocity = 0.02 // horzt/vert velocity in blocks per tick
     attacksTowers = false
     range = 0 // radius of range for tower attacks in blocks
     strength = 1
@@ -39,7 +40,7 @@ export class BasicEnemy extends Enemy {
 
     ontick(movementCallback, eventsCallback) {
         const retval = super.ontick(movementCallback, eventsCallback);
-        if (this.hp == 0 && !this._spawnedChildren && this.velocity != 0.05 && !this._deathByBase) {
+        if (this.hp == 0 && !this._spawnedChildren && this.velocity != BasicEnemy.baseVelocity && !this._deathByBase) {
             this._spawnedChildren = true;
 
             const e1 = new BasicEnemy(vendor.id, Math.random());
@@ -100,7 +101,6 @@ export class BasicBoss extends Enemy {
         super.ondeath(ecb);
         if (!this._deathByBase)
             updateMoney(100);
+        gameover(true /* victory */);
     }
-
-
 }

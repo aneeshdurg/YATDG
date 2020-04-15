@@ -4,7 +4,7 @@ import {Obstacle} from "../src/obstacles.mjs"
 
 import {LookupSprite, spriteList} from "./sprites.mjs"
 import {BasicEnemy, BasicBoss} from "./enemies.mjs"
-import {BasicBase, FoxTower, FlameArrowAbility, ThumbTack} from "./towers.mjs"
+import {BasicBase, SpiderTower, FoxTower, ThumbTack} from "./towers.mjs"
 
 class IDVendor {
     constructor() {
@@ -24,8 +24,10 @@ export function updateMoney(delta) {
 }
 
 let _gameover = false;
-export function gameover() {
+let victory = false;
+export function gameover(_victory) {
     _gameover = true;
+    victory = Boolean(_victory);
 }
 
 async function readfile(url) {
@@ -83,18 +85,6 @@ async function main() {
     base.position = [map.tsize / 2, map.tsize / 2];
     gamemap.tileTowersMap.set(253, [base]);
 
-    function ft(tile, invert) {
-        const tower = new FoxTower(vendor.id);
-        tower.position = [map.tsize / 2, map.tsize / 2];
-        if (invert) {
-            tower.priority = "last";
-            tower.spriteFrames.idle.frames[0].filter = `invert(1)`;
-        } else {
-            tower.abilities.push(new FlameArrowAbility());
-        }
-        gamemap.tileTowersMap.set(tile, [tower]);
-    }
-
     function getTileCoords(e, canvas) {
         const rect = canvas.getBoundingClientRect();
         let mousePos = VMath.sub([e.clientX, e.clientY], [rect.left, rect.top]);
@@ -113,23 +103,24 @@ async function main() {
         };
     }
 
-    let lastClickedID = "";
+    let lastClickedEl = null;
 
     const buttons = [
         document.getElementById("foxbutton"),
+        document.getElementById("spiderbutton"),
         document.getElementById("tacksbutton")];
 
-    const setLastClicked = (e) => {
-        buttons.forEach(button => { button.classList.remove("button-selected"); });
-        if (lastClickedID != e.target.id) {
-            lastClickedID = e.target.id;
-            e.target.classList.add("button-selected");
+    const setLastClicked = (button, e) => {
+        buttons.forEach(b => { b.classList.remove("button-selected"); });
+        if (lastClickedEl != button) {
+            lastClickedEl = button;
+            button.classList.add("button-selected");
         } else {
-            lastClickedID = "";
+            lastClickedEl = null;
         }
     };
 
-    buttons.forEach(button => { button.addEventListener("click", setLastClicked); });
+    buttons.forEach(button => { button.addEventListener("click", setLastClicked.bind(null, button)); });
 
     let selectedTower = null;
 
@@ -214,18 +205,30 @@ async function main() {
 
         let newTower = null;
 
-        if (lastClickedID == "foxbutton") {
-            if (playerMoney < 10 || !gamemap.legalTowerPositionsSet.has(coords.tile))
+        if (lastClickedEl) {
+            const price = Number(lastClickedEl.dataset.price);
+            if (isNaN(price))
                 return;
-
-            playerMoney -= 10;
-            newTower = new FoxTower(vendor.id);
-        } else if (lastClickedID == "tacksbutton") {
-            if (playerMoney < 5 || !gamemap.edgeMap.has(coords.tile))
+            if (playerMoney < price)
                 return;
+            playerMoney -= price;
 
-            playerMoney -= 5;
-            newTower = new ThumbTack(vendor.id);
+            if (lastClickedEl.id == "foxbutton") {
+                if (!gamemap.legalTowerPositionsSet.has(coords.tile))
+                    return;
+
+                newTower = new FoxTower(vendor.id);
+            } else if (lastClickedEl.id == "spiderbutton") {
+                if (!gamemap.legalTowerPositionsSet.has(coords.tile))
+                    return;
+
+                newTower = new SpiderTower(vendor.id);
+            } else if (lastClickedEl.id == "tacksbutton") {
+                if (!gamemap.edgeMap.has(coords.tile))
+                    return;
+
+                newTower = new ThumbTack(vendor.id);
+            }
         }
 
         if (newTower) {
@@ -330,8 +333,12 @@ async function main() {
             }
             requestAnimationFrame(render);
         }
-        else if (_gameover)
-            alert("You lost!");
+        else if (_gameover) {
+            if (victory)
+                alert("You won!");
+            else
+                alert("You lost!");
+        }
     }
 
     render(true);

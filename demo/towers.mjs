@@ -10,10 +10,103 @@ import {VMath} from "../src/vmath.mjs"
 import {LookupSprite} from "./sprites.mjs"
 import {gameover} from "./main.mjs"
 import {FoxTowerUpgradeTree} from "./foxTowerUpgrades.mjs"
+import {SpiderTowerUpgradeTree} from "./spiderTowerUpgrades.mjs"
 
 export class DemoTower extends Tower {
+    position = [32, 32]
+
+    rotation = 0
     upgrades = null // UpgradeTree
+    rendersRange = false
+
+    rotationSpeed = 0.1 // in radians per tick
+    priority = "first"
+
     onselect(domnode) { }
+
+    selectEnemy(queryRes) {
+        const enemies = queryRes.enemies.filter(
+            e => !e.enemy.isFlying && (!e.enemy.hp == 0));
+        if (enemies.length == 0)
+            return null;
+
+        if (this.priority == "first")
+            enemies.sort((e1, e2) => e1.distanceToBase > e2.distanceToBase);
+        else if (this.priority == "last")
+            enemies.sort((e1, e2) => e1.distanceToBase < e2.distanceToBase);
+
+        return enemies[0];
+    }
+
+    ontick(movementCallback, eventsCallback, queryEnemiesCB) {
+        return super.ontick((_velIsDir, _vel, _rot, sprite) => {
+            const queryRes = queryEnemiesCB(this.range, true);
+
+            const selfCoords = queryRes.selfCoords;
+
+            const enemyDescription = this.selectEnemy(queryRes);
+            if (enemyDescription && this.rotationSpeed) {
+                const rotationVector = VMath.mul([1, -1], VMath.sub(selfCoords, enemyDescription.coords));
+                const theta = Math.atan2(...rotationVector);
+
+                let minAngle = theta - this.rotation;
+                let tmp = theta - ((2 * Math.PI) + this.rotation)
+                if (Math.abs(tmp) < Math.abs(minAngle))
+                    minAngle = tmp;
+                tmp = ((2 * Math.PI) + theta) - this.rotation;
+                if (Math.abs(tmp) < Math.abs(minAngle))
+                    minAngle = tmp;
+
+                if (Math.abs(minAngle) > this.rotationSpeed)
+                    minAngle = Math.sign(minAngle) * this.rotationSpeed;
+
+                this.rotation += minAngle;
+
+                this.abilities.forEach(ability => {
+                    const bullet = ability.ontick();
+                    if (bullet) {
+                        const b = new bullet();
+                        Object.keys(ability.modifiers).forEach(k => {
+                            if (ability.modifiers[k] instanceof Object) {
+                                const modObj = ability.modifiers[k];
+                                Object.keys(modObj).forEach(k1 => {
+                                    b[k][k1] = modObj[k1];
+                                });
+                            } else {
+                                b[k] = ability.modifiers[k];
+                            }
+                        });
+
+                        const x = VMath.copy(this.position);
+                        b.position = x;
+                        b.setTower(this);
+                        b.setDirection([-Math.sin(this.rotation), Math.cos(this.rotation)]);
+                        eventsCallback([new AttackEvent([b])]);
+                    }
+                });
+            }
+
+            return movementCallback(false, 0, this.rotation, sprite);
+        });
+    }
+
+    onrender(ctx, spriteList, sprite) {
+        if (!this.rendersRange)
+            return false;
+
+        ctx.beginPath();
+        // TODO don't hard code 64, maybe pass in gamemap.map instead?
+        ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
+        ctx.fillStyle = "#2b2b2b40"
+        ctx.fill();
+        ctx.stroke();
+
+        const spriteImg = spriteList[sprite.spriteID];
+        ctx.rotate(this.rotation);
+        ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
+        ctx.rotate(-this.rotation);
+        return true;
+    }
 }
 
 export class DemoBase extends Base {
@@ -96,91 +189,90 @@ export class FoxTower extends DemoTower {
         },
     }
 
-    position = [32, 32]
-
-    hp = 1
     range = 3
     abilities = [new ArrowAbility()]
 
-    rotationSpeed = 0.1 // in radians per tick
-    priority = "first"
+    constructor(spawnID) {
+        super(spawnID);
+        this.upgrades = new FoxTowerUpgradeTree(this);
+    }
+}
 
-    rendersRange = false
+export class Sticky extends StatusEffect {
+    velocityModifier = 0.5
+    duration = 60
+    type = "STICKY"
+    sprites = {
+        frames: [new LookupSprite("web.png")],
+        tpt: 0,
+    }
+}
+
+export class Stickier extends Sticky {
+    velocityModifier = 0.25
+}
+
+export class Stickiest extends Stickier {
+    duration = 120
+}
+
+export class WebAttack extends Attack {
+    damage = 0
+    statusEffects = [new Sticky()]
+    effectChance = 1
+}
+
+export class Web extends Bullet {
+    spriteFrames = {
+        idle: {
+            frames: [new LookupSprite("web.png")],
+            tpt: 0,
+        },
+    }
+
+    velocityMagnitude = 0.2
+    lifespan = 10
+    pierce = 2
+    attack = new WebAttack()
+}
+
+export class WebAbility extends TowerAbility {
+    cooldown = 10
+    ability = Web
+}
+
+export class SpiderTower extends DemoTower {
+    name = "Spider Tower"
+
+    spriteFrames = {
+        idle: {
+            frames: [new LookupSprite("spiderTower.png")],
+            tpt: 0,
+        },
+    }
+
+    range = 2
+    abilities = [new WebAbility()]
+
+    rotationSpeed = 0.3
 
     constructor(spawnID) {
         super(spawnID);
-        this.rotation = 0;
-        this.upgrades = new FoxTowerUpgradeTree(this);
+        this.upgrades = new SpiderTowerUpgradeTree(this);
     }
 
-    ontick(movementCallback, eventsCallback, queryEnemiesCB) {
-        return super.ontick((_velIsDir, _vel, _rot, sprite) => {
-            const queryRes = queryEnemiesCB(this.range, true);
+    selectEnemy(queryRes) {
+        const enemies = queryRes.enemies.filter(
+            e => !e.enemy.isFlying && (!e.enemy.hp == 0) && !e.enemy.hasEffect("STICKY"));
+        if (enemies.length == 0)
+            return null;
 
-            const enemies = queryRes.enemies.filter(
-                e => !e.enemy.isFlying && (!e.enemy.hp == 0));
-            const selfCoords = queryRes.selfCoords;
+        if (this.priority == "first")
+            enemies.sort((e1, e2) => e1.distanceToBase > e2.distanceToBase);
+        else if (this.priority == "last")
+            enemies.sort((e1, e2) => e1.distanceToBase < e2.distanceToBase);
 
-            if (enemies.length && this.rotationSpeed) {
-                if (this.priority == "first")
-                    enemies.sort((e1, e2) => e1.distanceToBase > e2.distanceToBase);
-                else if (this.priority == "last")
-                    enemies.sort((e1, e2) => e1.distanceToBase < e2.distanceToBase);
-
-                const enemyDescription = enemies[0];
-                const rotationVector = VMath.mul([1, -1], VMath.sub(selfCoords, enemyDescription.coords));
-                const theta = Math.atan2(...rotationVector);
-
-                let minAngle = theta - this.rotation;
-                let tmp = theta - ((2 * Math.PI) + this.rotation)
-                if (Math.abs(tmp) < Math.abs(minAngle))
-                    minAngle = tmp;
-                tmp = ((2 * Math.PI) + theta) - this.rotation;
-                if (Math.abs(tmp) < Math.abs(minAngle))
-                    minAngle = tmp;
-
-                if (Math.abs(minAngle) > this.rotationSpeed)
-                    minAngle = Math.sign(minAngle) * this.rotationSpeed;
-
-                this.rotation += minAngle;
-
-                this.abilities.forEach(ability => {
-                    const bullet = ability.ontick();
-                    if (bullet) {
-                        Object.keys(ability.modifiers).forEach(k => {
-                            bullet[k] = ability.modifiers[k];
-                        });
-
-                        const b = new bullet();
-                        const x = VMath.copy(this.position);
-                        b.position = x;
-                        b.setTower(this);
-                        b.setDirection([-Math.sin(this.rotation), Math.cos(this.rotation)]);
-                        eventsCallback([new AttackEvent([b])]);
-                    }
-                });
-            }
-
-            return movementCallback(false, 0, this.rotation, sprite);
-        });
-    }
-
-    onrender(ctx, spriteList, sprite) {
-        if (!this.rendersRange)
-            return false;
-
-        ctx.beginPath();
-        // TODO don't hard code 64, maybe pass in gamemap.map instead?
-        ctx.arc(0, 0, this.range * 64, 0, 2 * Math.PI);
-        ctx.fillStyle = "#2b2b2b40"
-        ctx.fill();
-        ctx.stroke();
-
-        const spriteImg = spriteList[sprite.spriteID];
-        ctx.rotate(this.rotation);
-        ctx.drawImage(spriteImg, -spriteImg.width / 2, -spriteImg.height / 2);
-        ctx.rotate(-this.rotation);
-        return true;
+        return enemies[0];
     }
 }
 

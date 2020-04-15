@@ -12,7 +12,7 @@ export class TowerAbility {
         if (this._cooldownTimer > 0)
             this._cooldownTimer -= 1;
 
-        if (this._cooldownTimer == 0) {
+        if (this._cooldownTimer <= 0) {
             this._cooldownTimer = this.cooldown;
             return this.ability;
         }

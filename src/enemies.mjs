@@ -41,8 +41,9 @@ export class Enemy extends Entity {
 
                 this.ondamage(effect);
 
-                if (!isNaN(effect.velocityModifer))
+                if (!isNaN(effect.velocityModifier)) {
                     currentVelocity = VMath.mul(currentVelocity, effect.velocityModifier);
+                }
             });
 
             this._statusEffects = this._statusEffects.filter(effect => effect.duration);
@@ -55,6 +56,14 @@ export class Enemy extends Entity {
             return DONTUPDATE;
         } else
             return movementCallback(this.isFlying, currentVelocity, NaN, sprite);
+    }
+
+    hasEffect(type) {
+        for (let effect of this._statusEffects) {
+            if (effect.type == type)
+                return true;
+        }
+        return false;
     }
 
     ondamage(attack) {

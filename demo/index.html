@@ -81,16 +81,26 @@ canvas {
         </div>
         <div id="menucontainer" class="column" style="width: 20%">
             <h1>Menu</h1>
+            <ul>
+                <li>To place a tower click on the tower below and then click
+                    where you want the tower to be placed.</li>
+                <li>Once placed, you can click on a tower to upgrade it.</li>
+            </ul>
             <hr>
             <p id="money"/>
             <div id="menu" class="menu">
-                <div id="foxbutton" class="button">
+                <div id="foxbutton" class="button" data-price="20">
                     <img src="../assets/foxTower.png" class="icon"></img>
-                    Fox Tower (10)
+                    Fox Tower (20)
                 </div>
-                <div id="tacksbutton" class="button">
+                <div id="spiderbutton" class="button" data-price="30">
+                    <img src="../assets/spiderTower.png" class="icon"></img>
+                    Spider Tower (30)
+                </div>
+
+                <div id="tacksbutton" class="button" data-price="10">
                     <img src="../assets/thumbTacks.png" class="icon"></img>
-                    Thumb Tacks (5)
+                    Thumb Tacks (10)
                 </div>
             </div>
             <div id="upgrademenu" class="menu" style="width: 100%;">

@@ -87,6 +87,7 @@ export class StatusEffect extends Attack {
         s.type = this.type;
         s.damage = this.damage;
         s.duration = this.duration;
+        s.velocityModifier = this.velocityModifier;
         s.sprites = this.sprites;
         return s;
     }
